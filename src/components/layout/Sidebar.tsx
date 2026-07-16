@@ -1,0 +1,151 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  AddressIcon,
+  ChevronIcon,
+  EmailIcon,
+  KleberIcon,
+  PhoneIcon,
+  SettingsIcon,
+} from "@/components/icons/figma-icons";
+import {
+  Sidebar as SidebarRoot,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarRail,
+} from "@/components/ui/sidebar";
+import { cn } from "@/lib/utils";
+
+interface SidebarProps {
+  settingsOpen: boolean;
+  onOpenSettings: () => void;
+  onCloseSettings: () => void;
+}
+
+const showcaseItems = [
+  {
+    id: "register" as const,
+    href: "/showcase",
+    label: "Kleber Showcase",
+    icon: KleberIcon,
+  },
+  {
+    id: "address" as const,
+    href: "/address-validation",
+    label: "Address Validation",
+    icon: AddressIcon,
+  },
+  {
+    id: "phone" as const,
+    href: "/phone-validation",
+    label: "Phone Validation",
+    icon: PhoneIcon,
+  },
+  {
+    id: "email" as const,
+    href: "/email-validation",
+    label: "Email Validation",
+    icon: EmailIcon,
+  },
+];
+
+export function Sidebar({
+  settingsOpen,
+  onOpenSettings,
+  onCloseSettings,
+}: SidebarProps) {
+  const pathname = usePathname();
+
+  return (
+    <SidebarRoot collapsible="icon" className="border-r border-sidebar-border">
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel className="px-3 text-xs font-semibold uppercase tracking-[0.18em] text-body">
+            Showcase
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {showcaseItems.map((item) => {
+                const isActive = !settingsOpen && pathname === item.href;
+                const Icon = item.icon;
+                return (
+                  <SidebarMenuItem key={item.id}>
+                    <SidebarMenuButton
+                      tooltip={item.label}
+                      isActive={isActive}
+                      render={
+                        <Link href={item.href} onClick={onCloseSettings} />
+                      }
+                      className={cn(
+                        "justify-between",
+                        isActive
+                          ? "bg-brand-subtle text-brand data-active:bg-brand-subtle data-active:text-brand"
+                          : "text-body",
+                      )}
+                    >
+                      <span className="flex items-center gap-3">
+                        <Icon
+                          className={cn(
+                            "size-4",
+                            item.id !== "register" && "dark:invert",
+                          )}
+                        />
+                        <span>{item.label}</span>
+                      </span>
+                      {isActive ? (
+                        <ChevronIcon className="size-4 group-data-[collapsible=icon]:hidden" />
+                      ) : null}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+
+      <SidebarFooter>
+        <SidebarGroup>
+          <SidebarGroupLabel className="px-3 text-xs font-semibold uppercase tracking-[0.18em] text-body">
+            Settings
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip="API Settings"
+                  isActive={settingsOpen}
+                  onClick={onOpenSettings}
+                  className={cn(
+                    "justify-between",
+                    settingsOpen
+                      ? "bg-brand-subtle text-brand data-active:bg-brand-subtle data-active:text-brand"
+                      : "text-body",
+                  )}
+                >
+                  <span className="flex items-center gap-3">
+                    <SettingsIcon className="size-4 opacity-80 dark:invert" />
+                    <span>API Settings</span>
+                  </span>
+                  {settingsOpen ? (
+                    <ChevronIcon className="size-4 group-data-[collapsible=icon]:hidden" />
+                  ) : null}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarFooter>
+
+      <SidebarRail />
+    </SidebarRoot>
+  );
+}
