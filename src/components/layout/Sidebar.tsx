@@ -65,11 +65,11 @@ export function Sidebar({
   const pathname = usePathname();
 
   return (
-    <SidebarRoot collapsible="icon" className="border-r border-sidebar-border">
+    <SidebarRoot collapsible="icon" className="border-r border-sidebar-border ">
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="px-3 text-xs font-semibold uppercase tracking-[0.18em] text-body">
-            Showcase
+          <SidebarGroupLabel className="px-3 text-xs font-medium uppercase tracking-[0.18em] text-charcoal-300">
+            Validation
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -85,23 +85,15 @@ export function Sidebar({
                         <Link href={item.href} onClick={onCloseSettings} />
                       }
                       className={cn(
-                        "justify-between",
                         isActive
                           ? "bg-brand-subtle text-brand data-active:bg-brand-subtle data-active:text-brand"
                           : "text-body",
                       )}
                     >
-                      <span className="flex items-center gap-3">
-                        <Icon
-                          className={cn(
-                            "size-4",
-                            item.id !== "register" && "dark:invert",
-                          )}
-                        />
-                        <span>{item.label}</span>
-                      </span>
+                      <Icon className="size-4.5 text-current" />
+                      <span>{item.label}</span>
                       {isActive ? (
-                        <ChevronIcon className="size-4 group-data-[collapsible=icon]:hidden" />
+                        <ChevronIcon className="ml-auto size-4 text-current group-data-[collapsible=icon]:hidden" />
                       ) : null}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -112,9 +104,9 @@ export function Sidebar({
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="p-0">
         <SidebarGroup>
-          <SidebarGroupLabel className="px-3 text-xs font-semibold uppercase tracking-[0.18em] text-body">
+          <SidebarGroupLabel className="px-3 text-xs font-medium uppercase tracking-[0.18em] text-charcoal-300">
             Settings
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -125,18 +117,15 @@ export function Sidebar({
                   isActive={settingsOpen}
                   onClick={onOpenSettings}
                   className={cn(
-                    "justify-between",
                     settingsOpen
                       ? "bg-brand-subtle text-brand data-active:bg-brand-subtle data-active:text-brand"
                       : "text-body",
                   )}
                 >
-                  <span className="flex items-center gap-3">
-                    <SettingsIcon className="size-4 opacity-80 dark:invert" />
-                    <span>API Settings</span>
-                  </span>
+                  <SettingsIcon className="size-4 text-current" />
+                  <span>API Settings</span>
                   {settingsOpen ? (
-                    <ChevronIcon className="size-4 group-data-[collapsible=icon]:hidden" />
+                    <ChevronIcon className="ml-auto size-4 text-current group-data-[collapsible=icon]:hidden" />
                   ) : null}
                 </SidebarMenuButton>
               </SidebarMenuItem>

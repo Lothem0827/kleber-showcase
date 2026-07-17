@@ -34,9 +34,14 @@ export function TopHeader() {
             <p className="text-sm font-semibold text-heading">
               Need GBG support?
             </p>
-            <p className="text-xs font-medium text-body">
+            <a
+              href="https://www.gbg.com/en/contact/customer-support/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-fit text-xs font-medium text-brand hover:text-brand-hover"
+            >
               Ask a Support Specialist
-            </p>
+            </a>
           </div>
         </div>
       </div>

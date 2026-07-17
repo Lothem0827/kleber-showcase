@@ -24,6 +24,13 @@ export interface KleberAddressResult {
   AltPostcode?: string;
   StatusCode?: string;
   StatusDescription?: string;
+  EmailAccount?: string;
+  EmailDomain?: string;
+  Connected?: string | boolean;
+  Disposable?: string | boolean;
+  RoleAddress?: string | boolean;
+  Response?: string;
+  RidNumber?: string;
   [key: string]: unknown;
 }
 

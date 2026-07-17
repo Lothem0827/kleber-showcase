@@ -16,7 +16,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PhoneInput } from "@/components/ui/phone-input";
@@ -43,8 +42,13 @@ import {
   mapSearchResults,
   parseRemoteValidationStatus,
 } from "@/lib/kleber/validation";
+import { buildEmailChecks } from "@/lib/kleber/email-checks";
+import { buildPhoneChecks } from "@/lib/kleber/phone-checks";
+import { buildAddressChecks } from "@/lib/kleber/address-checks";
+import type { ValidationCheckItem } from "@/lib/kleber/validation-checks";
 import { cn } from "@/lib/utils";
 import type { Country, Value as E164Number } from "react-phone-number-input";
+import { ValidationChecksCard } from "./ValidationChecksCard";
 
 type FieldStatus = "idle" | "success" | "error";
 
@@ -103,6 +107,11 @@ function useRegisterForm(
   >([]);
   const [emailValidation, setEmailValidation] =
     useState<RemoteValidationResult | null>(null);
+  const [emailChecks, setEmailChecks] = useState<ValidationCheckItem[]>([]);
+  const [phoneChecks, setPhoneChecks] = useState<ValidationCheckItem[]>([]);
+  const [addressChecks, setAddressChecks] = useState<ValidationCheckItem[]>(
+    [],
+  );
   const [phoneValidation, setPhoneValidation] =
     useState<RemoteValidationResult | null>(null);
   const [emailValidating, setEmailValidating] = useState(false);
@@ -132,9 +141,11 @@ function useRegisterForm(
     }
     if (key === "email" && (!value || !String(value).includes("@"))) {
       setEmailValidation(null);
+      setEmailChecks([]);
     }
     if (key === "mobile" && String(value).replace(/\D/g, "").length < 8) {
       setPhoneValidation(null);
+      setPhoneChecks([]);
     }
   };
 
@@ -171,7 +182,10 @@ function useRegisterForm(
   }, [debouncedAddressQuery, kleber, manualEntry]);
 
   useEffect(() => {
-    if (!debouncedEmail || !debouncedEmail.includes("@")) return;
+    if (!debouncedEmail || !debouncedEmail.includes("@")) {
+      setEmailChecks([]);
+      return;
+    }
     let cancelled = false;
     async function validateEmail() {
       setEmailValidating(true);
@@ -184,16 +198,24 @@ function useRegisterForm(
         const parsed = parseRemoteValidationStatus(result?.StatusCode);
         parsed.statusDescription = result?.StatusDescription;
         setEmailValidation(parsed);
+        setEmailChecks(buildEmailChecks(result));
       } catch (error) {
         if (!cancelled) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : "Email validation failed";
           setEmailValidation({
             isValid: false,
             isWarning: false,
-            statusDescription:
-              error instanceof Error
-                ? error.message
-                : "Email validation failed",
+            statusDescription: message,
           });
+          setEmailChecks(
+            buildEmailChecks({
+              StatusCode: "2",
+              StatusDescription: message,
+            }),
+          );
         }
       } finally {
         if (!cancelled) setEmailValidating(false);
@@ -206,7 +228,10 @@ function useRegisterForm(
   }, [debouncedEmail, kleber]);
 
   useEffect(() => {
-    if (!debouncedPhone || debouncedPhone.replace(/\D/g, "").length < 8) return;
+    if (!debouncedPhone || debouncedPhone.replace(/\D/g, "").length < 8) {
+      setPhoneChecks([]);
+      return;
+    }
     let cancelled = false;
     async function validatePhone() {
       setPhoneValidating(true);
@@ -220,16 +245,36 @@ function useRegisterForm(
         const parsed = parseRemoteValidationStatus(result?.StatusCode);
         parsed.statusDescription = result?.StatusDescription;
         setPhoneValidation(parsed);
+        setPhoneChecks(
+          buildPhoneChecks(result, {
+            countryCode: form.countryCode,
+            phoneNumber: debouncedPhone,
+          }),
+        );
       } catch (error) {
         if (!cancelled) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : "Phone validation failed";
           setPhoneValidation({
             isValid: false,
             isWarning: false,
-            statusDescription:
-              error instanceof Error
-                ? error.message
-                : "Phone validation failed",
+            statusDescription: message,
           });
+          setPhoneChecks(
+            buildPhoneChecks(
+              {
+                StatusCode: "1",
+                StatusDescription: message,
+                Response: "FAILED",
+              },
+              {
+                countryCode: form.countryCode,
+                phoneNumber: debouncedPhone,
+              },
+            ),
+          );
         }
       } finally {
         if (!cancelled) setPhoneValidating(false);
@@ -290,8 +335,10 @@ function useRegisterForm(
           "postcode",
           (repaired.Postcode as string) ?? suggestion.Postcode,
         );
+        setAddressChecks(buildAddressChecks(repaired));
       }
     } catch (error) {
+      setAddressChecks([]);
       toast.error(
         error instanceof Error ? error.message : "Address repair failed",
       );
@@ -353,6 +400,11 @@ function useRegisterForm(
           addressPayload,
         );
         updateStep(0, { loading: false, response: verifyResponse });
+        setAddressChecks(
+          buildAddressChecks(
+            getFirstResult<KleberAddressResult>(verifyResponse),
+          ),
+        );
       } catch (error) {
         updateStep(0, {
           loading: false,
@@ -562,6 +614,9 @@ function useRegisterForm(
     phoneValidating,
     emailFieldStatus,
     phoneFieldStatus,
+    emailChecks,
+    phoneChecks,
+    addressChecks,
     addressLine1Status,
     addressLine2Status,
     suburbStatus,
@@ -570,6 +625,7 @@ function useRegisterForm(
     updateField,
     setManualEntry,
     setAddressFieldsLocked,
+    setAddressChecks,
     handleAddressSelect,
     handleSubmit,
   };
@@ -722,53 +778,62 @@ function AddressDetailsCard(props: {
       </CardHeader>
       <CardContent className="space-y-4 overflow-visible px-5 pb-5 pt-2">
         {!props.manualEntry ? (
-          <div className="relative z-30">
-            <FormField id="addressLookup" label="Address search">
-              <Input
-                id="addressLookup"
-                value={props.form.addressLookup}
-                onChange={(e) =>
-                  props.onFieldChange("addressLookup", e.target.value)
-                }
-                placeholder="Type your address here.."
-              />
-            </FormField>
-            {props.searchLoading ? (
-              <p className="text-sm text-muted-foreground">
-                Searching addresses...
-              </p>
-            ) : null}
-            {props.suggestions.length > 0 ? (
-              <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-60 overflow-y-auto rounded-xl border border-border bg-popover shadow-lg">
-                {props.suggestions.map((suggestion) => (
-                  <button
-                    key={`${suggestion.AddressLine}-${suggestion.Postcode}`}
-                    type="button"
-                    onClick={() => props.onAddressSelect(suggestion)}
-                    className="block w-full border-b border-border px-4 py-3 text-left text-sm text-body last:border-b-0 hover:bg-brand-subtle"
-                  >
-                    {suggestion.AddressLine}, {suggestion.Locality},{" "}
-                    {suggestion.State} {suggestion.Postcode}
-                  </button>
-                ))}
-              </div>
-            ) : null}
+          <div className="space-y-3">
+            <div className="relative z-30">
+              <FormField id="addressLookup" label="Address search">
+                <Input
+                  id="addressLookup"
+                  value={props.form.addressLookup}
+                  onChange={(e) =>
+                    props.onFieldChange("addressLookup", e.target.value)
+                  }
+                  placeholder="Type your address here.."
+                />
+              </FormField>
+              {props.searchLoading ? (
+                <p className="text-sm text-muted-foreground">
+                  Searching addresses...
+                </p>
+              ) : null}
+              {props.suggestions.length > 0 ? (
+                <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-60 overflow-y-auto rounded-xl border border-border bg-popover shadow-lg">
+                  {props.suggestions.map((suggestion) => (
+                    <button
+                      key={`${suggestion.AddressLine}-${suggestion.Postcode}`}
+                      type="button"
+                      onClick={() => props.onAddressSelect(suggestion)}
+                      className="block w-full border-b border-border px-4 py-3 text-left text-sm text-body last:border-b-0 hover:bg-brand-subtle"
+                    >
+                      {suggestion.AddressLine}, {suggestion.Locality},{" "}
+                      {suggestion.State} {suggestion.Postcode}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+            <p className="text-sm text-body">
+              Manually enter your address?{" "}
+              <button
+                type="button"
+                onClick={() => props.onManualEntryChange(true)}
+                className="font-medium text-brand hover:text-brand-hover"
+              >
+                Click Here
+              </button>
+            </p>
           </div>
-        ) : null}
-
-        <Label className="flex items-center gap-3 text-sm text-body">
-          <Checkbox
-            checked={props.manualEntry}
-            onCheckedChange={(checked) =>
-              props.onManualEntryChange(Boolean(checked))
-            }
-            className="border-border data-checked:border-brand data-checked:bg-brand"
-          />
-          Enter address manually
-        </Label>
-
-        {props.manualEntry ? (
+        ) : (
           <div className="space-y-4">
+            <p className="text-sm text-body">
+              Want to search for your address?{" "}
+              <button
+                type="button"
+                onClick={() => props.onManualEntryChange(false)}
+                className="font-medium text-brand hover:text-brand-hover"
+              >
+                Click Here
+              </button>
+            </p>
             <FormField
               id="addressLine1"
               label="Address line 1"
@@ -867,7 +932,7 @@ function AddressDetailsCard(props: {
               </FormField>
             </div>
           </div>
-        ) : null}
+        )}
       </CardContent>
     </Card>
   );
@@ -898,6 +963,9 @@ export function RegisterForm({
     phoneStatus,
     emailFieldStatus,
     phoneFieldStatus,
+    emailChecks,
+    phoneChecks,
+    addressChecks,
     addressLine1Status,
     addressLine2Status,
     suburbStatus,
@@ -906,6 +974,7 @@ export function RegisterForm({
     updateField,
     setManualEntry,
     setAddressFieldsLocked,
+    setAddressChecks,
     handleAddressSelect,
     handleSubmit,
   } = useRegisterForm(toggles, requestKey, mode);
@@ -918,6 +987,14 @@ export function RegisterForm({
   const showAddress = mode === "full" || mode === "address";
   const personalFields =
     mode === "email" ? "email" : mode === "phone" ? "phone" : "both";
+  const activeChecks =
+    mode === "email"
+      ? emailChecks
+      : mode === "phone"
+        ? phoneChecks
+        : mode === "address"
+          ? addressChecks
+          : [];
 
   return (
     <div className="space-y-5">
@@ -953,25 +1030,32 @@ export function RegisterForm({
           onManualEntryChange={(checked) => {
             setManualEntry(checked);
             setAddressFieldsLocked(false);
+            if (!checked) setAddressChecks([]);
           }}
           onAddressSelect={(suggestion) => void handleAddressSelect(suggestion)}
         />
       ) : null}
 
-      <div className="flex items-center gap-4">
-        <Button
-          type="button"
-          variant="default"
-          onClick={() => void handleSubmit()}
-          disabled={submitting}
-          className="h-10 rounded-lg bg-primary px-4 text-primary-foreground hover:bg-brand-hover"
-        >
-          {submitting ? "Validating..." : "Validate Details"}
-        </Button>
-        <p className="text-sm text-body">
-          Runs the Kleber validation chain after the form is confirmed.
-        </p>
-      </div>
+      {activeChecks.length > 0 ? (
+        <ValidationChecksCard checks={activeChecks} />
+      ) : null}
+
+      {mode === "full" || mode === "address" ? (
+        <div className="flex items-center gap-4">
+          <Button
+            type="button"
+            variant="default"
+            onClick={() => void handleSubmit()}
+            disabled={submitting}
+            className="h-10 rounded-lg bg-primary px-4 text-primary-foreground hover:bg-brand-hover"
+          >
+            {submitting ? "Validating..." : "Validate Details"}
+          </Button>
+          <p className="text-sm text-body">
+            Runs the Kleber validation chain after the form is confirmed.
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }
