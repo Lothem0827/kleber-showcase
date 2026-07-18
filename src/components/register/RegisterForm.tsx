@@ -8,7 +8,6 @@ import {
   type ReactNode,
 } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -67,15 +66,6 @@ function remoteFieldStatus(
   return validation.isValid ? "success" : "error";
 }
 
-function requiredFieldStatus(
-  value: string,
-  submitAttempted: boolean,
-): FieldStatus {
-  if (value.trim()) return "success";
-  if (submitAttempted) return "error";
-  return "idle";
-}
-
 function fieldValidityProps(status: FieldStatus) {
   return {
     "aria-invalid": status === "error" || undefined,
@@ -96,6 +86,13 @@ const INITIAL_FORM: RegisterFormData = {
   email: "",
 };
 
+const ADDRESS_METHODS = new Set<string>([
+  KLEBER_METHODS.VERIFY_ADDRESS,
+  KLEBER_METHODS.GNAF_APPEND,
+  KLEBER_METHODS.APPEND_TO_DPID,
+  KLEBER_METHODS.CREATE_KEYS,
+]);
+
 function useRegisterForm(
   toggles: ApiToggles,
   requestKey?: string,
@@ -106,7 +103,6 @@ function useRegisterForm(
   const [addressFieldsLocked, setAddressFieldsLocked] = useState(false);
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [validationResults, setValidationResults] = useState<
     ValidationStepResult[]
   >([]);
@@ -121,11 +117,18 @@ function useRegisterForm(
     useState<RemoteValidationResult | null>(null);
   const [emailValidating, setEmailValidating] = useState(false);
   const [phoneValidating, setPhoneValidating] = useState(false);
-  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   const debouncedAddressQuery = useDebounce(form.addressLookup, 350);
   const debouncedEmail = useDebounce(form.email, 500);
   const debouncedPhone = useDebounce(form.mobile, 500);
+  const addressFingerprint = [
+    form.addressLine1,
+    form.addressLine2,
+    form.suburb,
+    form.state,
+    form.postcode,
+  ].join("\u001f");
+  const debouncedAddressFingerprint = useDebounce(addressFingerprint, 500);
 
   const kleber = useCallback(
     (
@@ -134,6 +137,22 @@ function useRegisterForm(
     ) => callKleber(method, params, { requestKey }),
     [requestKey],
   );
+
+  const upsertMethodResult = useCallback((next: ValidationStepResult) => {
+    setValidationResults((current) => {
+      const without = current.filter((step) => step.method !== next.method);
+      return [...without, next];
+    });
+  }, []);
+
+  const removeMethodResult = useCallback((method: string) => {
+    setValidationResults((current) =>
+      current.filter((step) => step.method !== method),
+    );
+  }, []);
+
+  const trackEmailResults = mode === "full" || mode === "email";
+  const trackPhoneResults = mode === "full" || mode === "phone";
 
   const updateField = <K extends keyof RegisterFormData>(
     key: K,
@@ -144,13 +163,24 @@ function useRegisterForm(
     if (key === "addressLookup" && String(value).length < 3) {
       setSuggestions([]);
     }
+    if (
+      key === "addressLine1" ||
+      key === "addressLine2" ||
+      key === "suburb" ||
+      key === "state" ||
+      key === "postcode"
+    ) {
+      setAddressCleanResult(null);
+    }
     if (key === "email" && (!value || !String(value).includes("@"))) {
       setEmailValidation(null);
       setEmailChecks([]);
+      if (trackEmailResults) removeMethodResult(KLEBER_METHODS.VERIFY_EMAIL);
     }
     if (key === "mobile" && String(value).replace(/\D/g, "").length < 8) {
       setPhoneValidation(null);
       setPhoneChecks([]);
+      if (trackPhoneResults) removeMethodResult(KLEBER_METHODS.VERIFY_PHONE);
     }
   };
 
@@ -187,12 +217,21 @@ function useRegisterForm(
   }, [debouncedAddressQuery, kleber, manualEntry]);
 
   useEffect(() => {
+    if (!trackEmailResults || !toggles.verifyEmail) {
+      return;
+    }
     if (!debouncedEmail || !debouncedEmail.includes("@")) {
       return;
     }
     let cancelled = false;
     async function validateEmail() {
       setEmailValidating(true);
+      upsertMethodResult({
+        step: "Verify Email",
+        method: KLEBER_METHODS.VERIFY_EMAIL,
+        enabled: true,
+        loading: true,
+      });
       try {
         const response = await kleber(KLEBER_METHODS.VERIFY_EMAIL, {
           EmailAddress: debouncedEmail,
@@ -203,6 +242,13 @@ function useRegisterForm(
         parsed.statusDescription = result?.StatusDescription;
         setEmailValidation(parsed);
         setEmailChecks(buildEmailChecks(result));
+        upsertMethodResult({
+          step: "Verify Email",
+          method: KLEBER_METHODS.VERIFY_EMAIL,
+          enabled: true,
+          loading: false,
+          response,
+        });
       } catch (error) {
         if (!cancelled) {
           const message =
@@ -218,6 +264,13 @@ function useRegisterForm(
               StatusDescription: message,
             }),
           );
+          upsertMethodResult({
+            step: "Verify Email",
+            method: KLEBER_METHODS.VERIFY_EMAIL,
+            enabled: true,
+            loading: false,
+            error: message,
+          });
         }
       } finally {
         if (!cancelled) setEmailValidating(false);
@@ -227,15 +280,30 @@ function useRegisterForm(
     return () => {
       cancelled = true;
     };
-  }, [debouncedEmail, kleber]);
+  }, [
+    debouncedEmail,
+    kleber,
+    toggles.verifyEmail,
+    trackEmailResults,
+    upsertMethodResult,
+  ]);
 
   useEffect(() => {
+    if (!trackPhoneResults || !toggles.verifyPhone) {
+      return;
+    }
     if (!debouncedPhone || debouncedPhone.replace(/\D/g, "").length < 8) {
       return;
     }
     let cancelled = false;
     async function validatePhone() {
       setPhoneValidating(true);
+      upsertMethodResult({
+        step: "Verify Phone",
+        method: KLEBER_METHODS.VERIFY_PHONE,
+        enabled: true,
+        loading: true,
+      });
       try {
         const response = await kleber(KLEBER_METHODS.VERIFY_PHONE, {
           PhoneNumber: debouncedPhone,
@@ -252,6 +320,13 @@ function useRegisterForm(
             phoneNumber: debouncedPhone,
           }),
         );
+        upsertMethodResult({
+          step: "Verify Phone",
+          method: KLEBER_METHODS.VERIFY_PHONE,
+          enabled: true,
+          loading: false,
+          response,
+        });
       } catch (error) {
         if (!cancelled) {
           const message =
@@ -274,6 +349,13 @@ function useRegisterForm(
               },
             ),
           );
+          upsertMethodResult({
+            step: "Verify Phone",
+            method: KLEBER_METHODS.VERIFY_PHONE,
+            enabled: true,
+            loading: false,
+            error: message,
+          });
         }
       } finally {
         if (!cancelled) setPhoneValidating(false);
@@ -283,7 +365,14 @@ function useRegisterForm(
     return () => {
       cancelled = true;
     };
-  }, [debouncedPhone, form.countryCode, kleber]);
+  }, [
+    debouncedPhone,
+    form.countryCode,
+    kleber,
+    toggles.verifyPhone,
+    trackPhoneResults,
+    upsertMethodResult,
+  ]);
 
   const handleAddressSelect = async (suggestion: AddressSuggestion) => {
     setSuggestions([]);
@@ -343,10 +432,13 @@ function useRegisterForm(
     }
   };
 
-  const updateStep = (index: number, patch: Partial<ValidationStepResult>) => {
+  const updateStep = (
+    method: string,
+    patch: Partial<ValidationStepResult>,
+  ) => {
     setValidationResults((current) =>
-      current.map((step, stepIndex) =>
-        stepIndex === index ? { ...step, ...patch } : step,
+      current.map((step) =>
+        step.method === method ? { ...step, ...patch } : step,
       ),
     );
   };
@@ -358,7 +450,7 @@ function useRegisterForm(
     state: string;
     postcode: string;
   }) => {
-    const steps: ValidationStepResult[] = [
+    const addressSteps: ValidationStepResult[] = [
       {
         step: "Verify Address",
         method: KLEBER_METHODS.VERIFY_ADDRESS,
@@ -384,7 +476,10 @@ function useRegisterForm(
         loading: false,
       },
     ];
-    setValidationResults(steps);
+    setValidationResults((current) => [
+      ...current.filter((step) => !ADDRESS_METHODS.has(step.method)),
+      ...addressSteps,
+    ]);
 
     const line1 = addressOverride?.addressLine1 ?? form.addressLine1;
     const line2 = addressOverride?.addressLine2 ?? form.addressLine2;
@@ -403,20 +498,23 @@ function useRegisterForm(
     let verifyResponse: KleberResponse | undefined;
 
     if (toggles.verifyAddress) {
-      updateStep(0, { loading: true });
+      updateStep(KLEBER_METHODS.VERIFY_ADDRESS, { loading: true });
       try {
         verifyResponse = await kleber(
           KLEBER_METHODS.VERIFY_ADDRESS,
           addressPayload,
         );
-        updateStep(0, { loading: false, response: verifyResponse });
+        updateStep(KLEBER_METHODS.VERIFY_ADDRESS, {
+          loading: false,
+          response: verifyResponse,
+        });
         setAddressChecks(
           buildAddressChecks(
             getFirstResult<KleberAddressResult>(verifyResponse),
           ),
         );
       } catch (error) {
-        updateStep(0, {
+        updateStep(KLEBER_METHODS.VERIFY_ADDRESS, {
           loading: false,
           error: error instanceof Error ? error.message : "Verify failed",
         });
@@ -425,15 +523,15 @@ function useRegisterForm(
     }
 
     if (toggles.gnafAppend) {
-      updateStep(1, { loading: true });
+      updateStep(KLEBER_METHODS.GNAF_APPEND, { loading: true });
       try {
         const response = await kleber(
           KLEBER_METHODS.GNAF_APPEND,
           addressPayload,
         );
-        updateStep(1, { loading: false, response });
+        updateStep(KLEBER_METHODS.GNAF_APPEND, { loading: false, response });
       } catch (error) {
-        updateStep(1, {
+        updateStep(KLEBER_METHODS.GNAF_APPEND, {
           loading: false,
           error: error instanceof Error ? error.message : "GNAF append failed",
         });
@@ -441,7 +539,7 @@ function useRegisterForm(
     }
 
     if (toggles.appendToDpid) {
-      updateStep(2, { loading: true });
+      updateStep(KLEBER_METHODS.APPEND_TO_DPID, { loading: true });
       try {
         const dpid =
           getFirstResult<KleberAddressResult>(
@@ -451,9 +549,12 @@ function useRegisterForm(
         const response = await kleber(KLEBER_METHODS.APPEND_TO_DPID, {
           DPID: dpid,
         });
-        updateStep(2, { loading: false, response });
+        updateStep(KLEBER_METHODS.APPEND_TO_DPID, {
+          loading: false,
+          response,
+        });
       } catch (error) {
-        updateStep(2, {
+        updateStep(KLEBER_METHODS.APPEND_TO_DPID, {
           loading: false,
           error:
             error instanceof Error ? error.message : "Append to DPID failed",
@@ -462,7 +563,7 @@ function useRegisterForm(
     }
 
     if (toggles.createKeys) {
-      updateStep(3, { loading: true });
+      updateStep(KLEBER_METHODS.CREATE_KEYS, { loading: true });
       try {
         const addressLine3 =
           !line2 && suburb ? `${suburb} ${state} ${postcode}`.trim() : "";
@@ -471,9 +572,9 @@ function useRegisterForm(
           AddressLine2: line2,
           AddressLine3: addressLine3,
         });
-        updateStep(3, { loading: false, response });
+        updateStep(KLEBER_METHODS.CREATE_KEYS, { loading: false, response });
       } catch (error) {
-        updateStep(3, {
+        updateStep(KLEBER_METHODS.CREATE_KEYS, {
           loading: false,
           error: error instanceof Error ? error.message : "Create keys failed",
         });
@@ -481,126 +582,128 @@ function useRegisterForm(
     }
   };
 
-  const handleSubmit = async () => {
-    setSubmitAttempted(true);
+  const needsAddress = mode === "full" || mode === "address";
 
-    const needsEmail = mode === "full" || mode === "email";
-    const needsPhone = mode === "full" || mode === "phone";
-    const needsAddress = mode === "full" || mode === "address";
+  useEffect(() => {
+    if (!needsAddress) return;
 
-    if (needsEmail && !form.email.trim()) {
-      toast.error("Please provide an email address");
-      return;
-    }
-    if (needsPhone && !form.mobile.trim()) {
-      toast.error("Please provide a phone number");
-      return;
-    }
-    if (
-      needsAddress &&
-      (!form.addressLine1.trim() ||
-        !form.suburb ||
-        !form.state ||
-        !form.postcode)
-    ) {
-      toast.error("Please complete the address fields");
-      return;
-    }
-    if (needsEmail && emailValidation && !emailValidation.isValid) {
-      toast.error("Please provide a valid email address");
-      return;
-    }
-    if (needsPhone && phoneValidation && !phoneValidation.isValid) {
-      toast.error("Please provide a valid phone number");
+    const [addressLine1 = "", addressLine2 = "", suburb = "", state = "", postcode = ""] =
+      debouncedAddressFingerprint.split("\u001f");
+
+    const addressComplete =
+      Boolean(addressLine1.trim()) &&
+      Boolean(suburb.trim()) &&
+      Boolean(state.trim()) &&
+      Boolean(postcode.trim());
+
+    if (!addressComplete) {
       return;
     }
 
-    if (mode === "email") {
-      toast.success("Email validation completed");
-      return;
-    }
-    if (mode === "phone") {
-      toast.success("Phone validation completed");
-      return;
-    }
+    let cancelled = false;
 
-    setSubmitting(true);
-    setAddressCleanResult(null);
-    try {
-      let addressWasCleaned = false;
-      let repairedParts:
-        | {
-            addressLine1: string;
-            addressLine2: string;
-            suburb: string;
-            state: string;
-            postcode: string;
-          }
-        | undefined;
-      if (manualEntry) {
-        const beforeParts = {
-          addressLine1: form.addressLine1,
-          addressLine2: form.addressLine2,
-          suburb: form.suburb,
-          state: form.state,
-          postcode: form.postcode,
-        };
-        const repairResponse = await kleber(KLEBER_METHODS.REPAIR_ADDRESS, {
-          AddressLine1: form.addressLine1,
-          AddressLine2: form.addressLine2,
-          Locality: form.suburb,
-          State: form.state,
-          Postcode: form.postcode,
-        });
-        const repaired = getFirstResult<KleberAddressResult>(repairResponse);
-        if (repaired) {
-          const parts = String(repaired.AddressLine ?? form.addressLine1).split(
-            ",",
-          );
-          const buildingName = String(repaired.BuildingName || "").trim();
-          const streetLine = parts[0]?.trim() || form.addressLine1;
-          repairedParts = {
-            addressLine1: buildingName || streetLine || form.addressLine1,
-            addressLine2: buildingName
-              ? streetLine
-              : parts.length > 1
-                ? parts[1].trim()
-                : form.addressLine2,
-            suburb: String(repaired.Locality ?? form.suburb),
-            state: String(repaired.State ?? form.state),
-            postcode: String(repaired.Postcode ?? form.postcode),
+    async function runAddressValidation() {
+      try {
+        let addressWasCleaned = false;
+        let repairedParts:
+          | {
+              addressLine1: string;
+              addressLine2: string;
+              suburb: string;
+              state: string;
+              postcode: string;
+            }
+          | undefined;
+
+        if (manualEntry) {
+          const beforeParts = {
+            addressLine1,
+            addressLine2,
+            suburb,
+            state,
+            postcode,
           };
-          setForm((current) => ({
-            ...current,
-            ...repairedParts,
-          }));
-          const cleanResult = buildAddressCleanResult(
-            beforeParts,
-            repairedParts,
-          );
-          if (cleanResult) {
-            setAddressCleanResult(cleanResult);
-            addressWasCleaned = true;
+          const repairResponse = await kleber(KLEBER_METHODS.REPAIR_ADDRESS, {
+            AddressLine1: addressLine1,
+            AddressLine2: addressLine2,
+            Locality: suburb,
+            State: state,
+            Postcode: postcode,
+          });
+          if (cancelled) return;
+          const repaired = getFirstResult<KleberAddressResult>(repairResponse);
+          if (repaired) {
+            const parts = String(repaired.AddressLine ?? addressLine1).split(
+              ",",
+            );
+            const buildingName = String(repaired.BuildingName || "").trim();
+            const streetLine = parts[0]?.trim() || addressLine1;
+            repairedParts = {
+              addressLine1: buildingName || streetLine || addressLine1,
+              addressLine2: buildingName
+                ? streetLine
+                : parts.length > 1
+                  ? parts[1].trim()
+                  : addressLine2,
+              suburb: String(repaired.Locality || suburb),
+              state: String(repaired.State || state),
+              postcode: String(repaired.Postcode || postcode),
+            };
+            const addressChanged =
+              repairedParts.addressLine1 !== beforeParts.addressLine1 ||
+              repairedParts.addressLine2 !== beforeParts.addressLine2 ||
+              repairedParts.suburb !== beforeParts.suburb ||
+              repairedParts.state !== beforeParts.state ||
+              repairedParts.postcode !== beforeParts.postcode;
+            if (addressChanged) {
+              setForm((current) => ({
+                ...current,
+                ...repairedParts,
+              }));
+            }
+            const cleanResult = buildAddressCleanResult(
+              beforeParts,
+              repairedParts,
+            );
+            if (cleanResult) {
+              setAddressCleanResult(cleanResult);
+              addressWasCleaned = true;
+            }
           }
-          setAddressFieldsLocked(true);
+        }
+
+        if (cancelled) return;
+        await runValidationChain(repairedParts);
+        if (cancelled) return;
+        if (addressWasCleaned) {
+          toast.success("Address cleaned into the standard postal format");
+        }
+      } catch (error) {
+        if (!cancelled) {
+          toast.error(
+            error instanceof Error ? error.message : "Validation chain failed",
+          );
         }
       }
-      await runValidationChain(repairedParts);
-      toast.success(
-        addressWasCleaned
-          ? "Address cleaned into the standard postal format"
-          : mode === "address"
-            ? "Address validation completed"
-            : "Registration validation completed",
-      );
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Validation chain failed",
-      );
-    } finally {
-      setSubmitting(false);
     }
-  };
+
+    void runAddressValidation();
+    return () => {
+      cancelled = true;
+    };
+    // Intentionally keyed off the debounced fingerprint + toggles/mode/manualEntry.
+    // runValidationChain closes over latest form/kleber via the effect deps below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- address fingerprint drives re-runs
+  }, [
+    debouncedAddressFingerprint,
+    kleber,
+    manualEntry,
+    needsAddress,
+    toggles.appendToDpid,
+    toggles.createKeys,
+    toggles.gnafAppend,
+    toggles.verifyAddress,
+  ]);
 
   const visibleSuggestions =
     !manualEntry && form.addressLookup.length >= 3 ? suggestions : [];
@@ -629,23 +732,29 @@ function useRegisterForm(
 
   const emailFieldStatus = remoteFieldStatus(emailValidating, emailValidation);
   const phoneFieldStatus = remoteFieldStatus(phoneValidating, phoneValidation);
-  const addressLine1Status = requiredFieldStatus(
-    form.addressLine1,
-    submitAttempted,
-  );
+  const addressLine1Status: FieldStatus = form.addressLine1.trim()
+    ? "success"
+    : "idle";
   const addressLine2Status: FieldStatus = form.addressLine2.trim()
     ? "success"
     : "idle";
-  const suburbStatus = requiredFieldStatus(form.suburb, submitAttempted);
-  const stateStatus = requiredFieldStatus(form.state, submitAttempted);
-  const postcodeStatus = requiredFieldStatus(form.postcode, submitAttempted);
+  const suburbStatus: FieldStatus = form.suburb.trim() ? "success" : "idle";
+  const stateStatus: FieldStatus = form.state.trim() ? "success" : "idle";
+  const postcodeStatus: FieldStatus = form.postcode.trim() ? "success" : "idle";
+
+  const clearAddressValidation = () => {
+    setAddressChecks([]);
+    setAddressCleanResult(null);
+    setValidationResults((current) =>
+      current.filter((step) => !ADDRESS_METHODS.has(step.method)),
+    );
+  };
 
   return {
     form,
     manualEntry,
     addressFieldsLocked,
     searchLoading,
-    submitting,
     validationResults,
     visibleSuggestions,
     emailStatus,
@@ -669,7 +778,7 @@ function useRegisterForm(
     setAddressChecks,
     setAddressCleanResult,
     handleAddressSelect,
-    handleSubmit,
+    clearAddressValidation,
   };
 }
 
@@ -1016,7 +1125,6 @@ export function RegisterForm({
     manualEntry,
     addressFieldsLocked,
     searchLoading,
-    submitting,
     validationResults,
     visibleSuggestions,
     emailStatus,
@@ -1038,7 +1146,7 @@ export function RegisterForm({
     setAddressChecks,
     setAddressCleanResult,
     handleAddressSelect,
-    handleSubmit,
+    clearAddressValidation,
   } = useRegisterForm(toggles, requestKey, mode);
 
   useEffect(() => {
@@ -1097,8 +1205,7 @@ export function RegisterForm({
           }}
           onUnlockAddress={() => {
             setAddressFieldsLocked(false);
-            setAddressChecks([]);
-            setAddressCleanResult(null);
+            clearAddressValidation();
           }}
           onAddressSelect={(suggestion) => void handleAddressSelect(suggestion)}
         />
@@ -1110,23 +1217,6 @@ export function RegisterForm({
 
       {activeChecks.length > 0 ? (
         <ValidationChecksCard checks={activeChecks} />
-      ) : null}
-
-      {mode === "full" || mode === "address" ? (
-        <div className="flex items-center gap-4" data-tour="validate-button">
-          <Button
-            type="button"
-            variant="default"
-            onClick={() => void handleSubmit()}
-            disabled={submitting}
-            className="h-10 rounded-lg bg-primary px-4 text-primary-foreground hover:bg-brand-hover"
-          >
-            {submitting ? "Validating..." : "Validate Details"}
-          </Button>
-          <p className="text-sm text-body">
-            Runs the Kleber validation chain after the form is confirmed.
-          </p>
-        </div>
       ) : null}
     </div>
   );

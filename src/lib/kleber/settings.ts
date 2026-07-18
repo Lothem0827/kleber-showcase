@@ -4,6 +4,8 @@ export const API_SETTINGS_STORAGE_KEY = "kleber-api-settings";
 export const API_SETTINGS_EVENT = "kleber-api-settings";
 
 export const DEFAULT_TOGGLES: ApiToggles = {
+  verifyEmail: true,
+  verifyPhone: true,
   verifyAddress: true,
   gnafAppend: true,
   appendToDpid: true,
@@ -26,6 +28,8 @@ function parseSettings(raw: string | null): ApiSettingsState {
     return {
       testApiKey: typeof parsed.testApiKey === "string" ? parsed.testApiKey : "",
       toggles: {
+        verifyEmail: parsed.toggles?.verifyEmail ?? true,
+        verifyPhone: parsed.toggles?.verifyPhone ?? true,
         verifyAddress: parsed.toggles?.verifyAddress ?? true,
         gnafAppend: parsed.toggles?.gnafAppend ?? true,
         appendToDpid: parsed.toggles?.appendToDpid ?? true,

@@ -85,6 +85,8 @@ export interface RemoteValidationResult {
 }
 
 export interface ApiToggles {
+  verifyEmail: boolean;
+  verifyPhone: boolean;
   verifyAddress: boolean;
   gnafAppend: boolean;
   appendToDpid: boolean;

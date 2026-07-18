@@ -14,33 +14,68 @@ import { Switch } from "@/components/ui/switch";
 import { saveApiSettings } from "@/lib/kleber/settings";
 import type { ApiSettingsState, ApiToggles } from "@/lib/kleber/types";
 
-const VALIDATION_ITEMS: Array<{
+type ValidationItem = {
   key: keyof ApiToggles;
   title: string;
   methodLines: string[];
-}> = [
+};
+
+type ValidationGroup = {
+  label: string;
+  items: ValidationItem[];
+};
+
+const VALIDATION_GROUPS: ValidationGroup[] = [
   {
-    key: "verifyAddress",
-    title: "AuPaf.VerifyAddress",
-    methodLines: ["DataTools.Verify.Address.AuPaf.VerifyAddress"],
-  },
-  {
-    key: "gnafAppend",
-    title: "Gnaf.Au.Append",
-    methodLines: ["DataTools.Enhance.Address.Geocoding.Gnaf.Au.Append"],
-  },
-  {
-    key: "appendToDpid",
-    title: "Permissions and Delivery",
-    methodLines: [
-      "DataTools.Enhance.Address.PermissionsAndDelivery.",
-      "AuPost.AppendToDpid",
+    label: "Email Validation",
+    items: [
+      {
+        key: "verifyEmail",
+        title: "BriteVerify.VerifyEmail",
+        methodLines: ["DataTools.Verify.Email.BriteVerify.VerifyEmail"],
+      },
     ],
   },
   {
-    key: "createKeys",
-    title: "CreateKeys",
-    methodLines: ["DataTools.Match.Address.Au.CreateKeys"],
+    label: "Phone Validation",
+    items: [
+      {
+        key: "verifyPhone",
+        title: "ReachTel.VerifyPhoneNumberIsConnected",
+        methodLines: [
+          "DataTools.Verify.PhoneNumber.ReachTel.",
+          "VerifyPhoneNumberIsConnected",
+        ],
+      },
+    ],
+  },
+  {
+    label: "Address Validation",
+    items: [
+      {
+        key: "verifyAddress",
+        title: "AuPaf.VerifyAddress",
+        methodLines: ["DataTools.Verify.Address.AuPaf.VerifyAddress"],
+      },
+      {
+        key: "gnafAppend",
+        title: "Gnaf.Au.Append",
+        methodLines: ["DataTools.Enhance.Address.Geocoding.Gnaf.Au.Append"],
+      },
+      {
+        key: "appendToDpid",
+        title: "Permissions and Delivery",
+        methodLines: [
+          "DataTools.Enhance.Address.PermissionsAndDelivery.",
+          "AuPost.AppendToDpid",
+        ],
+      },
+      {
+        key: "createKeys",
+        title: "CreateKeys",
+        methodLines: ["DataTools.Match.Address.Au.CreateKeys"],
+      },
+    ],
   },
 ];
 
@@ -115,31 +150,38 @@ export function ApiSettings({
             <h2 className="text-sm font-medium text-heading">
               Show or Hide Methods
             </h2>
-            <div className="flex flex-col gap-3">
-              {VALIDATION_ITEMS.map((item) => (
-                <div
-                  key={item.key}
-                  className="flex items-center justify-between gap-4 rounded-xl border border-border bg-card p-4"
-                >
-                  <div className="min-w-0 space-y-0.5">
-                    <p className="text-base font-semibold text-heading">
-                      {item.title}
-                    </p>
-                    <div className="font-mono text-xs text-body">
-                      {item.methodLines.map((line) => (
-                        <p key={line} className="leading-normal">
-                          {line}
+            <div className="flex flex-col gap-5">
+              {VALIDATION_GROUPS.map((group) => (
+                <div key={group.label} className="flex flex-col gap-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {group.label}
+                  </h3>
+                  {group.items.map((item) => (
+                    <div
+                      key={item.key}
+                      className="flex items-center justify-between gap-4 rounded-xl border border-border bg-card p-4"
+                    >
+                      <div className="min-w-0 space-y-0.5">
+                        <p className="text-base font-semibold text-heading">
+                          {item.title}
                         </p>
-                      ))}
+                        <div className="font-mono text-xs text-body">
+                          {item.methodLines.map((line) => (
+                            <p key={line} className="leading-normal">
+                              {line}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                      <Switch
+                        checked={draft.toggles[item.key]}
+                        onCheckedChange={(checked) =>
+                          updateToggle(item.key, checked)
+                        }
+                        aria-label={`Toggle ${item.title}`}
+                      />
                     </div>
-                  </div>
-                  <Switch
-                    checked={draft.toggles[item.key]}
-                    onCheckedChange={(checked) =>
-                      updateToggle(item.key, checked)
-                    }
-                    aria-label={`Toggle ${item.title}`}
-                  />
+                  ))}
                 </div>
               ))}
             </div>

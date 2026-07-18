@@ -189,6 +189,8 @@ export function ValidationPageShell({
           <ResizablePanel id="api" defaultSize="40" minSize="30">
             <ApiMethodsPanel
               results={validationResults}
+              mode={mode}
+              toggles={savedSettings.toggles}
               onExpandWidth={ensureApiAtLeastHalf}
               onCollapseWidth={restorePreviousSplit}
             />
@@ -205,12 +207,14 @@ export function ValidationPageShell({
             toggles={savedSettings.toggles}
             requestKey={savedSettings.testApiKey}
             onValidationResultsChange={setValidationResults}
-            showSideCards={enableSideCards}
+            showSideCards={false}
           />
         </div>
         <ApiMethodsPanel
           results={validationResults}
-          className="h-auto overflow-visible"
+          mode={mode}
+          toggles={savedSettings.toggles}
+          layout="stack"
         />
       </div>
 

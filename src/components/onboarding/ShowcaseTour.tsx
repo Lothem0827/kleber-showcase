@@ -33,15 +33,8 @@ const TOUR_DEFS: TourDef[] = [
     id: "form-details",
     title: "Enter customer details",
     description:
-      "Add an email, phone number, and search for or enter an Australian address.",
+      "Add an email, phone number, and address — Kleber validates them automatically as you go.",
     side: "bottom",
-  },
-  {
-    id: "validate-button",
-    title: "Validate Details",
-    description:
-      "Run the Kleber validation chain to check the details you entered.",
-    side: "top",
   },
   {
     id: "api-methods",
