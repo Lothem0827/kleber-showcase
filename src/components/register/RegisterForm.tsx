@@ -45,10 +45,15 @@ import {
 import { buildEmailChecks } from "@/lib/kleber/email-checks";
 import { buildPhoneChecks } from "@/lib/kleber/phone-checks";
 import { buildAddressChecks } from "@/lib/kleber/address-checks";
+import {
+  buildAddressCleanResult,
+  type AddressCleanResult,
+} from "@/lib/kleber/address-clean";
 import type { ValidationCheckItem } from "@/lib/kleber/validation-checks";
 import { cn } from "@/lib/utils";
 import type { Country, Value as E164Number } from "react-phone-number-input";
-import { ValidationChecksCard } from "./ValidationChecksCard";
+import { AddressCleanedCard } from "@/components/register/AddressCleanedCard";
+import { ValidationChecksCard } from "@/components/register/ValidationChecksCard";
 
 type FieldStatus = "idle" | "success" | "error";
 
@@ -109,9 +114,9 @@ function useRegisterForm(
     useState<RemoteValidationResult | null>(null);
   const [emailChecks, setEmailChecks] = useState<ValidationCheckItem[]>([]);
   const [phoneChecks, setPhoneChecks] = useState<ValidationCheckItem[]>([]);
-  const [addressChecks, setAddressChecks] = useState<ValidationCheckItem[]>(
-    [],
-  );
+  const [addressChecks, setAddressChecks] = useState<ValidationCheckItem[]>([]);
+  const [addressCleanResult, setAddressCleanResult] =
+    useState<AddressCleanResult | null>(null);
   const [phoneValidation, setPhoneValidation] =
     useState<RemoteValidationResult | null>(null);
   const [emailValidating, setEmailValidating] = useState(false);
@@ -183,7 +188,6 @@ function useRegisterForm(
 
   useEffect(() => {
     if (!debouncedEmail || !debouncedEmail.includes("@")) {
-      setEmailChecks([]);
       return;
     }
     let cancelled = false;
@@ -202,9 +206,7 @@ function useRegisterForm(
       } catch (error) {
         if (!cancelled) {
           const message =
-            error instanceof Error
-              ? error.message
-              : "Email validation failed";
+            error instanceof Error ? error.message : "Email validation failed";
           setEmailValidation({
             isValid: false,
             isWarning: false,
@@ -229,7 +231,6 @@ function useRegisterForm(
 
   useEffect(() => {
     if (!debouncedPhone || debouncedPhone.replace(/\D/g, "").length < 8) {
-      setPhoneChecks([]);
       return;
     }
     let cancelled = false;
@@ -254,9 +255,7 @@ function useRegisterForm(
       } catch (error) {
         if (!cancelled) {
           const message =
-            error instanceof Error
-              ? error.message
-              : "Phone validation failed";
+            error instanceof Error ? error.message : "Phone validation failed";
           setPhoneValidation({
             isValid: false,
             isWarning: false,
@@ -290,6 +289,7 @@ function useRegisterForm(
     setSuggestions([]);
     setManualEntry(true);
     setAddressFieldsLocked(true);
+    setAddressCleanResult(null);
 
     updateField("addressLookup", suggestion.AddressLine);
     updateField("addressLine1", suggestion.AddressLine);
@@ -312,10 +312,8 @@ function useRegisterForm(
           ",",
         );
         const buildingName = String(repaired.BuildingName || "").trim();
-        const streetLine =
-          parts[0]?.trim() || suggestion.AddressLine1 || "";
-        const line1 =
-          buildingName || streetLine || suggestion.AddressLine;
+        const streetLine = parts[0]?.trim() || suggestion.AddressLine1 || "";
+        const line1 = buildingName || streetLine || suggestion.AddressLine;
         updateField("addressLookup", line1);
         updateField("addressLine1", line1);
         updateField(
@@ -353,7 +351,13 @@ function useRegisterForm(
     );
   };
 
-  const runValidationChain = async () => {
+  const runValidationChain = async (addressOverride?: {
+    addressLine1: string;
+    addressLine2: string;
+    suburb: string;
+    state: string;
+    postcode: string;
+  }) => {
     const steps: ValidationStepResult[] = [
       {
         step: "Verify Address",
@@ -382,12 +386,18 @@ function useRegisterForm(
     ];
     setValidationResults(steps);
 
+    const line1 = addressOverride?.addressLine1 ?? form.addressLine1;
+    const line2 = addressOverride?.addressLine2 ?? form.addressLine2;
+    const suburb = addressOverride?.suburb ?? form.suburb;
+    const state = addressOverride?.state ?? form.state;
+    const postcode = addressOverride?.postcode ?? form.postcode;
+
     const addressPayload = {
-      AddressLine1: form.addressLine1,
-      AddressLine2: form.addressLine2,
-      Locality: form.suburb,
-      State: form.state,
-      Postcode: form.postcode,
+      AddressLine1: line1,
+      AddressLine2: line2,
+      Locality: suburb,
+      State: state,
+      Postcode: postcode,
     };
 
     let verifyResponse: KleberResponse | undefined;
@@ -455,12 +465,10 @@ function useRegisterForm(
       updateStep(3, { loading: true });
       try {
         const addressLine3 =
-          !form.addressLine2 && form.suburb
-            ? `${form.suburb} ${form.state} ${form.postcode}`.trim()
-            : "";
+          !line2 && suburb ? `${suburb} ${state} ${postcode}`.trim() : "";
         const response = await kleber(KLEBER_METHODS.CREATE_KEYS, {
-          AddressLine1: form.addressLine1,
-          AddressLine2: form.addressLine2,
+          AddressLine1: line1,
+          AddressLine2: line2,
           AddressLine3: addressLine3,
         });
         updateStep(3, { loading: false, response });
@@ -517,8 +525,26 @@ function useRegisterForm(
     }
 
     setSubmitting(true);
+    setAddressCleanResult(null);
     try {
+      let addressWasCleaned = false;
+      let repairedParts:
+        | {
+            addressLine1: string;
+            addressLine2: string;
+            suburb: string;
+            state: string;
+            postcode: string;
+          }
+        | undefined;
       if (manualEntry) {
+        const beforeParts = {
+          addressLine1: form.addressLine1,
+          addressLine2: form.addressLine2,
+          suburb: form.suburb,
+          state: form.state,
+          postcode: form.postcode,
+        };
         const repairResponse = await kleber(KLEBER_METHODS.REPAIR_ADDRESS, {
           AddressLine1: form.addressLine1,
           AddressLine2: form.addressLine2,
@@ -533,25 +559,39 @@ function useRegisterForm(
           );
           const buildingName = String(repaired.BuildingName || "").trim();
           const streetLine = parts[0]?.trim() || form.addressLine1;
-          setForm((current) => ({
-            ...current,
-            addressLine1: buildingName || streetLine || current.addressLine1,
+          repairedParts = {
+            addressLine1: buildingName || streetLine || form.addressLine1,
             addressLine2: buildingName
               ? streetLine
               : parts.length > 1
                 ? parts[1].trim()
-                : current.addressLine2,
-            suburb: String(repaired.Locality ?? current.suburb),
-            state: String(repaired.State ?? current.state),
-            postcode: String(repaired.Postcode ?? current.postcode),
+                : form.addressLine2,
+            suburb: String(repaired.Locality ?? form.suburb),
+            state: String(repaired.State ?? form.state),
+            postcode: String(repaired.Postcode ?? form.postcode),
+          };
+          setForm((current) => ({
+            ...current,
+            ...repairedParts,
           }));
+          const cleanResult = buildAddressCleanResult(
+            beforeParts,
+            repairedParts,
+          );
+          if (cleanResult) {
+            setAddressCleanResult(cleanResult);
+            addressWasCleaned = true;
+          }
+          setAddressFieldsLocked(true);
         }
       }
-      await runValidationChain();
+      await runValidationChain(repairedParts);
       toast.success(
-        mode === "address"
-          ? "Address validation completed"
-          : "Registration validation completed",
+        addressWasCleaned
+          ? "Address cleaned into the standard postal format"
+          : mode === "address"
+            ? "Address validation completed"
+            : "Registration validation completed",
       );
     } catch (error) {
       toast.error(
@@ -617,6 +657,7 @@ function useRegisterForm(
     emailChecks,
     phoneChecks,
     addressChecks,
+    addressCleanResult,
     addressLine1Status,
     addressLine2Status,
     suburbStatus,
@@ -626,6 +667,7 @@ function useRegisterForm(
     setManualEntry,
     setAddressFieldsLocked,
     setAddressChecks,
+    setAddressCleanResult,
     handleAddressSelect,
     handleSubmit,
   };
@@ -764,6 +806,7 @@ function AddressDetailsCard(props: {
     value: RegisterFormData[K],
   ) => void;
   onManualEntryChange: (checked: boolean) => void;
+  onUnlockAddress: () => void;
   onAddressSelect: (suggestion: AddressSuggestion) => void;
 }) {
   return (
@@ -824,16 +867,21 @@ function AddressDetailsCard(props: {
           </div>
         ) : (
           <div className="space-y-4">
-            <p className="text-sm text-body">
-              Want to search for your address?{" "}
-              <button
-                type="button"
-                onClick={() => props.onManualEntryChange(false)}
-                className="font-medium text-brand hover:text-brand-hover"
-              >
-                Click Here
-              </button>
-            </p>
+            {props.addressFieldsLocked ? (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm text-muted-foreground">
+                  Address filled from search — edit if you need to change a unit
+                  or level.
+                </p>
+                <button
+                  type="button"
+                  onClick={props.onUnlockAddress}
+                  className="text-sm font-medium text-brand hover:text-brand-hover"
+                >
+                  Edit address
+                </button>
+              </div>
+            ) : null}
             <FormField
               id="addressLine1"
               label="Address line 1"
@@ -893,6 +941,7 @@ function AddressDetailsCard(props: {
               >
                 <Select
                   value={props.form.state}
+                  disabled={props.addressFieldsLocked}
                   onValueChange={(value) => {
                     if (value) props.onFieldChange("state", value);
                   }}
@@ -900,6 +949,7 @@ function AddressDetailsCard(props: {
                   <SelectTrigger
                     id="state"
                     className="w-full"
+                    disabled={props.addressFieldsLocked}
                     {...fieldValidityProps(props.stateStatus)}
                   >
                     <SelectValue placeholder="Select state" />
@@ -931,6 +981,16 @@ function AddressDetailsCard(props: {
                 />
               </FormField>
             </div>
+            <p className="text-sm text-body font-medium">
+              Want to search for your address?{" "}
+              <button
+                type="button"
+                onClick={() => props.onManualEntryChange(false)}
+                className="font-medium text-brand hover:text-brand-hover"
+              >
+                Click Here
+              </button>
+            </p>
           </div>
         )}
       </CardContent>
@@ -966,6 +1026,7 @@ export function RegisterForm({
     emailChecks,
     phoneChecks,
     addressChecks,
+    addressCleanResult,
     addressLine1Status,
     addressLine2Status,
     suburbStatus,
@@ -975,6 +1036,7 @@ export function RegisterForm({
     setManualEntry,
     setAddressFieldsLocked,
     setAddressChecks,
+    setAddressCleanResult,
     handleAddressSelect,
     handleSubmit,
   } = useRegisterForm(toggles, requestKey, mode);
@@ -1030,10 +1092,20 @@ export function RegisterForm({
           onManualEntryChange={(checked) => {
             setManualEntry(checked);
             setAddressFieldsLocked(false);
+            setAddressCleanResult(null);
             if (!checked) setAddressChecks([]);
+          }}
+          onUnlockAddress={() => {
+            setAddressFieldsLocked(false);
+            setAddressChecks([]);
+            setAddressCleanResult(null);
           }}
           onAddressSelect={(suggestion) => void handleAddressSelect(suggestion)}
         />
+      ) : null}
+
+      {addressCleanResult ? (
+        <AddressCleanedCard result={addressCleanResult} />
       ) : null}
 
       {activeChecks.length > 0 ? (
