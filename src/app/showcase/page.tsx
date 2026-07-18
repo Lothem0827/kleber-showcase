@@ -6,7 +6,7 @@ export default function ShowcasePage() {
   return (
     <ValidationPageShell
       title="Kleber Showcase"
-      subtitle="Showcasing the power of Kleber API"
+      subtitle="End-to-end address, phone, and email validation with Kleber"
       mode="full"
       showSideCards
     />

@@ -693,7 +693,7 @@ function PersonalDetailsCard(props: {
           Personal Details
         </CardTitle>
         <CardDescription className="text-sm text-body">
-          Confirm your details for file delivery
+          Contact information for this order
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4 px-5 pt-2 pb-5">
@@ -773,7 +773,7 @@ function AddressDetailsCard(props: {
           Address Details
         </CardTitle>
         <CardDescription className="text-sm text-body">
-          Confirm your details for file delivery
+          Where your order will be shipped
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4 overflow-visible px-5 pb-5 pt-2">
@@ -997,7 +997,7 @@ export function RegisterForm({
           : [];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" data-tour="form-details">
       {showPersonal ? (
         <PersonalDetailsCard
           fields={personalFields}
@@ -1041,7 +1041,7 @@ export function RegisterForm({
       ) : null}
 
       {mode === "full" || mode === "address" ? (
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4" data-tour="validate-button">
           <Button
             type="button"
             variant="default"

@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState, useSyncExternalStore } from "react";
 import { useGroupRef } from "react-resizable-panels";
 import { AppShell } from "@/components/layout/AppShell";
+import { ShowcaseTour } from "@/components/onboarding/ShowcaseTour";
 import { ApiMethodsPanel } from "@/components/register/ApiMethodsPanel";
 import { ApiSettings } from "@/components/register/ApiSettings";
 import { PaymentMethodCard } from "@/components/register/PaymentMethodCard";
@@ -184,7 +185,7 @@ export function ValidationPageShell({
               />
             </div>
           </ResizablePanel>
-          <ResizableHandle />
+          <ResizableHandle data-tour="resize-handle" />
           <ResizablePanel id="api" defaultSize="40" minSize="30">
             <ApiMethodsPanel
               results={validationResults}
@@ -213,17 +214,19 @@ export function ValidationPageShell({
         />
       </div>
 
+      {mode === "full" ? <ShowcaseTour /> : null}
+
       <Drawer
         open={settingsOpen}
         onOpenChange={(open) => {
           setSettingsOpen(open);
           if (!open) setDraftSettings(null);
         }}
-        swipeDirection="right"
+        swipeDirection="left"
       >
         <DrawerContent
           overlayClassName="bg-[rgba(11,11,12,0.4)]"
-          className="[--drawer-inset:12px] [--drawer-bleed-background:transparent] [--bleed:0px] after:hidden m-0 h-auto max-h-none overflow-hidden bg-muted text-foreground data-[swipe-axis=x]:!inset-y-auto data-[swipe-axis=x]:!top-[12px] data-[swipe-axis=x]:!bottom-[12px] data-[swipe-axis=x]:[--drawer-content-width:min(532px,calc(100%-24px))] data-[swipe-axis=x]:sm:[--drawer-content-width:532px] data-[swipe-direction=right]:!right-[12px] rounded-[12px] data-[swipe-direction=right]:rounded-[12px] data-[swipe-direction=right]:rounded-r-[12px] data-[swipe-direction=right]:rounded-l-[12px] data-[swipe-direction=right]:border-0"
+          className="[--drawer-inset:12px] [--drawer-bleed-background:transparent] [--bleed:0px] after:hidden m-0 h-auto max-h-none overflow-hidden bg-muted text-foreground data-[swipe-axis=x]:!inset-y-auto data-[swipe-axis=x]:!top-[12px] data-[swipe-axis=x]:!bottom-[12px] data-[swipe-axis=x]:[--drawer-content-width:min(532px,calc(100%-24px))] data-[swipe-axis=x]:sm:[--drawer-content-width:532px] data-[swipe-direction=left]:!left-[12px] rounded-[12px] data-[swipe-direction=left]:rounded-[12px] data-[swipe-direction=left]:border-0"
         >
           <ApiSettings
             draft={draft}

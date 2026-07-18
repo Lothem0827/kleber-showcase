@@ -107,15 +107,13 @@ export function ApiMethodsPanel({
   const [expandedContent, setExpandedContent] = useState(false);
 
   const toggleExpandedContent = () => {
-    setExpandedContent((current) => {
-      const next = !current;
-      if (next) {
-        onExpandWidth?.();
-      } else {
-        onCollapseWidth?.();
-      }
-      return next;
-    });
+    const next = !expandedContent;
+    setExpandedContent(next);
+    if (next) {
+      onExpandWidth?.();
+    } else {
+      onCollapseWidth?.();
+    }
   };
 
   const resultsByMethod = useMemo(
@@ -136,6 +134,7 @@ export function ApiMethodsPanel({
 
   return (
     <aside
+      data-tour="api-methods"
       className={cn(
         "flex h-full min-h-0 w-full flex-col overflow-hidden bg-muted",
         className,
@@ -143,9 +142,13 @@ export function ApiMethodsPanel({
     >
       <header className="shrink-0 border-b border-border px-6 py-6">
         <div className="flex items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="space-y-0.5">
             <h2 className="text-2xl font-semibold text-heading">API Methods</h2>
+            <p className="text-base text-body">
+              Live responses from the current validation run
+            </p>
           </div>
+
           {/* <SidebarCollapseIcon className="text-icon dark:invert" /> */}
         </div>
       </header>

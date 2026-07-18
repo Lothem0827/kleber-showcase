@@ -90,14 +90,17 @@
   --color-border: var(--border);
   --color-surface: var(--surface);
 
-  --font-sans: var(--font-inter, ui-sans-serif), system-ui, sans-serif,
+  --font-sans:
+    var(--font-inter, ui-sans-serif), system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 
-  --font-heading: var(--font-inter, ui-sans-serif), system-ui, sans-serif,
+  --font-heading:
+    var(--font-inter, ui-sans-serif), system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 
-  --font-mono: var(--font-jetbrains-mono, ui-monospace), SFMono-Regular, Menlo,
-    Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-mono:
+    var(--font-jetbrains-mono, ui-monospace), SFMono-Regular, Menlo, Monaco,
+    Consolas, "Liberation Mono", "Courier New", monospace;
 
   --color-sidebar-ring: var(--sidebar-ring);
 
@@ -287,4 +290,83 @@ html.dark {
 /* Sonner hardcodes a drop shadow — remove it for flat toasts. */
 [data-sonner-toast] {
   box-shadow: none !important;
+}
+
+/* First-visit showcase tour — neutralize driver.js defaults so card/button
+   utilities from ShowcaseTour (buttonVariants + text tokens) can apply. */
+.kleber-tour-popover.driver-popover {
+  max-width: 20rem;
+  padding: 1rem;
+  box-shadow: none !important;
+  background-color: var(--card) !important;
+  color: var(--card-foreground) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 0.75rem !important;
+  font-family: inherit !important;
+}
+
+.kleber-tour-popover .driver-popover-title {
+  font-size: 1rem !important;
+  font-weight: 600 !important;
+  line-height: 1.5 !important;
+  color: var(--heading) !important;
+  margin: 0 !important;
+}
+
+.kleber-tour-popover .driver-popover-description {
+  font-size: 0.875rem !important;
+  font-weight: 400 !important;
+  line-height: 1.5 !important;
+  color: var(--body) !important;
+  margin: 0.25rem 0 0 !important;
+}
+
+.kleber-tour-popover .driver-popover-progress-text {
+  order: 0;
+  font-size: 0.75rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  color: var(--color-charcoal-300) !important;
+}
+
+.kleber-tour-popover .driver-popover-footer {
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.kleber-tour-popover .kleber-tour-skip {
+  order: 1;
+  margin-right: auto;
+}
+
+.kleber-tour-popover .driver-popover-navigation-btns {
+  order: 2;
+  gap: 0;
+}
+
+.kleber-tour-popover .driver-popover-navigation-btns button + button {
+  margin-left: 0.6rem;
+}
+
+.kleber-tour-popover .driver-popover-next-btn:hover,
+.kleber-tour-popover .driver-popover-prev-btn:hover {
+  filter: none;
+}
+
+.kleber-tour-popover .driver-popover-arrow-side-left {
+  border-left-color: var(--card);
+}
+
+.kleber-tour-popover .driver-popover-arrow-side-right {
+  border-right-color: var(--card);
+}
+
+.kleber-tour-popover .driver-popover-arrow-side-top {
+  border-top-color: var(--card);
+}
+
+.kleber-tour-popover .driver-popover-arrow-side-bottom {
+  border-bottom-color: var(--card);
 }

@@ -67,9 +67,9 @@ export function Sidebar({
   return (
     <SidebarRoot collapsible="icon" className="border-r border-sidebar-border ">
       <SidebarContent>
-        <SidebarGroup>
+        <SidebarGroup data-tour="nav-validations">
           <SidebarGroupLabel className="px-3 text-xs font-medium uppercase tracking-[0.18em] text-charcoal-300">
-            Validation
+            Validations
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -113,6 +113,7 @@ export function Sidebar({
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
+                  data-tour="api-settings"
                   tooltip="API Settings"
                   isActive={settingsOpen}
                   onClick={onOpenSettings}
