@@ -13,7 +13,7 @@ export const DEFAULT_TOGGLES: ApiToggles = {
 };
 
 export const DEFAULT_API_SETTINGS: ApiSettingsState = {
-  testApiKey: "",
+  testApiKey: process.env.NEXT_PUBLIC_KLEBER_KEY?.trim() ?? "",
   toggles: DEFAULT_TOGGLES,
 };
 
@@ -26,7 +26,10 @@ function parseSettings(raw: string | null): ApiSettingsState {
   try {
     const parsed = JSON.parse(raw) as Partial<ApiSettingsState>;
     return {
-      testApiKey: typeof parsed.testApiKey === "string" ? parsed.testApiKey : "",
+      testApiKey:
+        typeof parsed.testApiKey === "string" && parsed.testApiKey.trim()
+          ? parsed.testApiKey
+          : DEFAULT_API_SETTINGS.testApiKey,
       toggles: {
         verifyEmail: parsed.toggles?.verifyEmail ?? true,
         verifyPhone: parsed.toggles?.verifyPhone ?? true,
