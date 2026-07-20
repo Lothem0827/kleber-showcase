@@ -33,7 +33,7 @@ const DesktopValidationLayout = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-full min-h-0 flex-1 px-6 pb-6">
+      <div className="h-full min-h-0 flex-1 p-6">
         <ValidationWorkspaceSkeleton />
       </div>
     ),
@@ -174,43 +174,41 @@ export function ValidationPageShell({
       onOpenSettings={() => setSettingsOpen(true)}
       onCloseSettings={closeSettings}
     >
-      <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="shrink-0 px-6 pt-6">{header}</div>
-
-        {isXl ? (
-          <div className="min-h-0 flex-1">
-            <DesktopValidationLayout
+      {isXl ? (
+        <div className="h-full min-h-0 flex-1">
+          <DesktopValidationLayout
+            header={header}
+            mode={mode}
+            toggles={savedSettings.toggles}
+            requestKey={savedSettings.testApiKey}
+            validationResults={validationResults}
+            onValidationResultsChange={setValidationResults}
+            showSideCards={enableSideCards && showSideCards}
+            onWorkspaceResize={syncSideCardsVisibility}
+            groupRef={groupRef}
+            onExpandWidth={ensureApiAtLeastHalf}
+            onCollapseWidth={restorePreviousSplit}
+          />
+        </div>
+      ) : (
+        <div className="flex h-full min-h-0 flex-1 flex-col overflow-y-auto">
+          <div className="p-6">
+            {header}
+            <RegisterForm
               mode={mode}
               toggles={savedSettings.toggles}
               requestKey={savedSettings.testApiKey}
-              validationResults={validationResults}
               onValidationResultsChange={setValidationResults}
-              showSideCards={enableSideCards && showSideCards}
-              onWorkspaceResize={syncSideCardsVisibility}
-              groupRef={groupRef}
-              onExpandWidth={ensureApiAtLeastHalf}
-              onCollapseWidth={restorePreviousSplit}
             />
           </div>
-        ) : (
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-            <div className="px-6 pb-6">
-              <RegisterForm
-                mode={mode}
-                toggles={savedSettings.toggles}
-                requestKey={savedSettings.testApiKey}
-                onValidationResultsChange={setValidationResults}
-              />
-            </div>
-            <ApiMethodsPanel
-              results={validationResults}
-              mode={mode}
-              toggles={savedSettings.toggles}
-              layout="stack"
-            />
-          </div>
-        )}
-      </div>
+          <ApiMethodsPanel
+            results={validationResults}
+            mode={mode}
+            toggles={savedSettings.toggles}
+            layout="stack"
+          />
+        </div>
+      )}
 
       {mode === "full" ? <ShowcaseTour /> : null}
 

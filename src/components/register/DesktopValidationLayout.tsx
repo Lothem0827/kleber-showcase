@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import type { ReactNode } from "react";
 import { useGroupRef } from "react-resizable-panels";
 import { ApiMethodsPanel } from "@/components/register/ApiMethodsPanel";
 import {
@@ -31,6 +32,7 @@ const PaymentMethodCard = dynamic(
 );
 
 export function DesktopValidationLayout({
+  header,
   mode,
   toggles,
   requestKey,
@@ -42,6 +44,7 @@ export function DesktopValidationLayout({
   onExpandWidth,
   onCollapseWidth,
 }: {
+  header: ReactNode;
   mode: RegisterFormMode;
   toggles: ApiSettingsState["toggles"];
   requestKey?: string;
@@ -66,7 +69,8 @@ export function DesktopValidationLayout({
       }}
     >
       <ResizablePanel id="workspace" defaultSize="60" minSize="30">
-        <div className="h-full min-h-0 overflow-y-auto px-6 pb-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        <div className="h-full min-h-0 overflow-y-auto p-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          {header}
           <div
             className={
               showSideCards
