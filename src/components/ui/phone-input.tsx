@@ -12,7 +12,6 @@ import {
   ComboboxItem,
   ComboboxList,
   ComboboxTrigger,
-  ComboboxValue
 } from '@/components/ui/combobox'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -143,9 +142,16 @@ const CountrySelect = ({ disabled, value: selectedCountry, options: countryList,
               triggerClassName
             )}
             disabled={disabled || readOnly}
+            aria-label={
+              selectedCountry
+                ? `Country code, ${selectedCountry}`
+                : "Select country code"
+            }
           >
-            <span className='sr-only'>
-              <ComboboxValue />
+            <span className="sr-only">
+              {selectedCountry
+                ? `Country code, ${selectedCountry}`
+                : "Select country code"}
             </span>
             <FlagComponent country={selectedCountry} countryName={selectedCountry} />
           </Button>

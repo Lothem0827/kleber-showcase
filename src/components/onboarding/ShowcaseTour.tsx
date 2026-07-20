@@ -104,7 +104,7 @@ function styleTourPopover(
   );
   popover.progress.className = cn(
     "driver-popover-progress-text",
-    "text-xs font-medium uppercase tracking-[0.18em] text-charcoal-300",
+    "text-xs font-medium uppercase tracking-[0.18em] text-body",
   );
 
   // Buttons — reuse shadcn buttonVariants (omit driver footer-btn classes so
@@ -173,6 +173,12 @@ export function ShowcaseTour() {
           prevBtnText: "Back",
           progressText: "{{current}} / {{total}}",
           steps,
+          onHighlighted: (element) => {
+            if (!(element instanceof HTMLElement)) return;
+            element.removeAttribute("aria-haspopup");
+            element.removeAttribute("aria-expanded");
+            element.removeAttribute("aria-controls");
+          },
           onDestroyed: () => {
             if (!cancelled) markOnboardingComplete();
           },

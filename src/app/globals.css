@@ -36,7 +36,7 @@
   --secondary: #f0f0f2;
   --secondary-foreground: #3a3943;
   --muted: #f0f0f2;
-  --muted-foreground: #767786;
+  --muted-foreground: #5c5c6b;
   --accent: #f0f0fe;
   --accent-foreground: #1f1f7a;
   --destructive: oklch(0.577 0.245 27.325);
@@ -327,7 +327,7 @@ html.dark {
   font-weight: 500 !important;
   letter-spacing: 0.18em !important;
   text-transform: uppercase !important;
-  color: var(--color-charcoal-300) !important;
+  color: var(--body) !important;
 }
 
 .kleber-tour-popover .driver-popover-footer {

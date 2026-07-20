@@ -13,7 +13,7 @@ export const DEFAULT_TOGGLES: ApiToggles = {
 };
 
 export const DEFAULT_API_SETTINGS: ApiSettingsState = {
-  testApiKey: process.env.NEXT_PUBLIC_KLEBER_KEY?.trim() ?? "",
+  testApiKey: "",
   toggles: DEFAULT_TOGGLES,
 };
 
@@ -27,9 +27,7 @@ function parseSettings(raw: string | null): ApiSettingsState {
     const parsed = JSON.parse(raw) as Partial<ApiSettingsState>;
     return {
       testApiKey:
-        typeof parsed.testApiKey === "string" && parsed.testApiKey.trim()
-          ? parsed.testApiKey
-          : DEFAULT_API_SETTINGS.testApiKey,
+        typeof parsed.testApiKey === "string" ? parsed.testApiKey : "",
       toggles: {
         verifyEmail: parsed.toggles?.verifyEmail ?? true,
         verifyPhone: parsed.toggles?.verifyPhone ?? true,
@@ -57,6 +55,11 @@ export function loadApiSettings(): ApiSettingsState {
   cachedRaw = raw;
   cachedValue = parseSettings(raw);
   return cachedValue;
+}
+
+/** Stable server snapshot for useSyncExternalStore (must be referentially equal across calls). */
+export function getServerApiSettings(): ApiSettingsState {
+  return DEFAULT_API_SETTINGS;
 }
 
 export function saveApiSettings(settings: ApiSettingsState) {

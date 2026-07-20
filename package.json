@@ -2,12 +2,19 @@
   "name": "kleber-showcase-redesign",
   "version": "0.1.0",
   "private": true,
+  "browserslist": [
+    "chrome >= 111",
+    "edge >= 111",
+    "firefox >= 111",
+    "safari >= 16.4"
+  ],
   "scripts": {
     "dev": "node server.mjs",
     "dev:next": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "lighthouse:showcase": "node scripts/lighthouse-showcase.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
@@ -35,6 +42,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
+    "lighthouse": "^12.8.2",
     "react-dev-inspector": "^2.0.1",
     "tailwindcss": "^4",
     "typescript": "^5"

@@ -1,5 +1,16 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Lighthouse
+
+Run a production Lighthouse audit on `/showcase`:
+
+```bash
+npm run build
+npm run lighthouse:showcase
+```
+
+Reports are written to `lighthouse-reports/` (gitignored).
+
 ## Getting Started
 
 First, run the development server:
