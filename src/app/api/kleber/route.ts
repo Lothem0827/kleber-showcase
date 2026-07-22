@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     if (!response.ok) {
       return NextResponse.json(
         {
-          error: data.DtResponse?.ErrorMessage ?? "Kleber service request failed.",
+          error: data.DtResponse?.ErrorMessage ?? "Loqate service request failed.",
           DtResponse: data.DtResponse,
         },
         { status: response.status },
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     return NextResponse.json(data);
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Failed to reach Kleber service.";
+      error instanceof Error ? error.message : "Failed to reach Loqate service.";
     return NextResponse.json({ error: message }, { status: 502 });
   }
 }

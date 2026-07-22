@@ -34,13 +34,13 @@ const showcaseItems = [
   {
     id: "register" as const,
     href: "/showcase",
-    label: "Kleber Showcase",
+    label: "Loqate Showcase",
     icon: KleberIcon,
   },
   {
     id: "address" as const,
     href: "/address-validation",
-    label: "Address Validation",
+    label: "Address Verify",
     icon: AddressIcon,
   },
   {

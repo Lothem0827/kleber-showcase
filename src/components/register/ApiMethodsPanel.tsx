@@ -1,12 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Copy, Maximize2 } from "lucide-react";
+import { Copy, Maximize2, PanelLeftIcon } from "lucide-react";
 import { toast } from "sonner";
-import {
-  ChevronUpDownIcon,
-  SidebarCollapseIcon,
-} from "@/components/icons/figma-icons";
+import { ChevronUpDownIcon } from "@/components/icons/figma-icons";
 import { JsonHighlight } from "@/components/register/JsonHighlight";
 import type { RegisterFormMode } from "@/components/register/RegisterForm";
 import { Button } from "@/components/ui/button";
@@ -18,6 +15,13 @@ import type {
   ValidationStepResult,
 } from "@/lib/kleber/types";
 import { cn } from "@/lib/utils";
+
+/** Same panel icon as the left sidebar trigger, mirrored for the right rail. */
+function ApiPanelToggleIcon({ className }: { className?: string }) {
+  return (
+    <PanelLeftIcon className={cn("size-5 scale-x-[-1]", className)} aria-hidden />
+  );
+}
 
 type MethodStatus = "processing" | "complete" | "skipped" | "failed";
 
@@ -136,12 +140,12 @@ function getMethodGroups(mode: RegisterFormMode): ApiMethodGroup[] {
     return [{ label: "Email Validation", sections: EMAIL_METHOD_SECTIONS }];
   }
   if (mode === "address") {
-    return [{ label: "Address Validation", sections: ADDRESS_METHOD_SECTIONS }];
+    return [{ label: "Address Verify", sections: ADDRESS_METHOD_SECTIONS }];
   }
   return [
     { label: "Email Validation", sections: EMAIL_METHOD_SECTIONS },
     { label: "Phone Validation", sections: PHONE_METHOD_SECTIONS },
-    { label: "Address Validation", sections: ADDRESS_METHOD_SECTIONS },
+    { label: "Address Verify", sections: ADDRESS_METHOD_SECTIONS },
   ];
 }
 
@@ -153,6 +157,8 @@ interface ApiMethodsPanelProps {
   toggles?: ApiToggles;
   onExpandWidth?: () => void;
   onCollapseWidth?: () => void;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
   className?: string;
   /** `fill` for desktop split pane; `stack` for mobile natural-height layout */
   layout?: "fill" | "stack";
@@ -164,6 +170,8 @@ export function ApiMethodsPanel({
   toggles = DEFAULT_TOGGLES,
   onExpandWidth,
   onCollapseWidth,
+  collapsed = false,
+  onToggleCollapse,
   className,
   layout = "fill",
 }: ApiMethodsPanelProps) {
@@ -212,158 +220,192 @@ export function ApiMethodsPanel({
   const openMethod =
     manualOpenMethod !== undefined ? manualOpenMethod : activeMethod;
 
+  const showCollapseControl = !isStack && onToggleCollapse != null;
+  const isRailCollapsed = collapsed && showCollapseControl;
+
   return (
     <aside
       data-tour="api-methods"
       className={cn(
-        "flex w-full flex-col bg-muted",
+        "@container relative flex w-full flex-col border-l border-border bg-muted",
         isStack
-          ? "h-auto overflow-visible"
+          ? "h-auto overflow-visible border-l-0"
           : "h-full min-h-0 overflow-hidden",
         className,
       )}
     >
-      <header className="shrink-0 border-b border-border px-6 py-6">
-        <div className="flex items-center justify-between gap-4">
+      {showCollapseControl ? (
+        <button
+          type="button"
+          data-tour="api-methods-collapse"
+          onClick={onToggleCollapse}
+          aria-label={
+            isRailCollapsed ? "Expand API Methods" : "Collapse API Methods"
+          }
+          title={
+            isRailCollapsed ? "Expand API Methods" : "Collapse API Methods"
+          }
+          className="absolute top-3 right-2 z-10 inline-flex size-7 items-center justify-center rounded-[min(var(--radius-md),12px)] text-icon hover:bg-brand-subtle"
+        >
+          <ApiPanelToggleIcon className="text-icon" />
+        </button>
+      ) : null}
+
+      {/* Keep the methods tree mounted when collapsed to avoid React fiber crashes mid-resize. */}
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 flex-col",
+          isRailCollapsed && "pointer-events-none invisible absolute inset-0",
+        )}
+        aria-hidden={isRailCollapsed || undefined}
+      >
+        <header
+          className={cn(
+            "shrink-0 border-b border-border px-6 py-6",
+            showCollapseControl && "pr-12",
+          )}
+        >
           <div className="space-y-0.5">
             <h2 className="text-2xl font-semibold text-heading">API Methods</h2>
             <p className="text-base text-body">
               Live responses from the current validation run
             </p>
           </div>
+        </header>
 
-          {/* <SidebarCollapseIcon className="text-icon dark:invert" /> */}
-        </div>
-      </header>
+        <div
+            className={cn(
+              "flex flex-col overflow-x-hidden",
+              isStack ? "overflow-y-visible" : "min-h-0 flex-1 overflow-y-auto",
+            )}
+        >
+          {methodGroups.map((group) => (
+            <div key={group.label}>
+              <div className="border-b border-border px-5 py-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {group.label}
+                </h3>
+              </div>
+              {group.sections.map((section) => {
+                const result = resultsByMethod.get(section.method);
+                const isOpen = openMethod === section.method;
+                const status = getMethodStatus(result);
 
-      <div
-        className={cn(
-          "flex flex-col",
-          isStack
-            ? "overflow-visible"
-            : "min-h-0 flex-1 overflow-y-auto",
-        )}
-      >
-        {methodGroups.map((group) => (
-          <div key={group.label}>
-            <div className="border-b border-border px-5 py-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {group.label}
-              </h3>
-            </div>
-            {group.sections.map((section) => {
-              const result = resultsByMethod.get(section.method);
-              const isOpen = openMethod === section.method;
-              const status = getMethodStatus(result);
-
-              return (
-                <section
-                  key={section.method}
-                  className="border-b border-border px-5 py-5"
-                >
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setManualOpenMethod(isOpen ? null : section.method)
-                    }
-                    className="flex w-full shrink-0 items-start justify-between gap-3 text-left"
+                return (
+                  <section
+                    key={section.method}
+                    className="border-b border-border px-5 py-5"
                   >
-                    <div className="min-w-0 space-y-0.5">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-base font-semibold text-heading">
-                          {section.title}
-                        </p>
-                        {status ? <MethodStatusBadge status={status} /> : null}
-                      </div>
-                      <div className="font-mono text-sm text-body">
-                        {section.methodLines.map((line) => (
-                          <p key={line} className="leading-normal">
-                            {line}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setManualOpenMethod(isOpen ? null : section.method)
+                      }
+                      className="flex w-full min-w-0 items-start justify-between gap-3 text-left"
+                    >
+                      <div className="min-w-0 flex-1 space-y-0.5 overflow-hidden">
+                        <div className="flex min-w-0 items-start gap-2">
+                          <p className="min-w-0 flex-1 break-all text-base font-semibold text-heading">
+                            {section.title}
                           </p>
-                        ))}
-                      </div>
-                    </div>
-                    <ChevronUpDownIcon className="mt-1 size-4 shrink-0 text-icon dark:invert" />
-                  </button>
-
-                  {isOpen ? (
-                    <div className="mt-5 space-y-2">
-                      <div className="flex shrink-0 items-center justify-between gap-3">
-                        <div className="flex rounded-lg bg-background p-1">
-                          <button
-                            type="button"
-                            onClick={() => setViewMode("table")}
-                            className={cn(
-                              "rounded-md px-2 py-1 text-xs font-semibold transition-colors",
-                              viewMode === "table"
-                                ? "bg-heading text-surface"
-                                : "text-muted-foreground",
-                            )}
-                          >
-                            Table
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setViewMode("code")}
-                            className={cn(
-                              "rounded-md px-2 py-1 text-xs font-semibold transition-colors",
-                              viewMode === "code"
-                                ? "bg-heading text-surface"
-                                : "text-muted-foreground",
-                            )}
-                          >
-                            Code
-                          </button>
+                          {status ? (
+                            <MethodStatusBadge status={status} />
+                          ) : null}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon-sm"
-                            className="size-6 rounded-md"
-                            onClick={toggleExpandedContent}
-                            aria-label={
-                              expandedContent
-                                ? "Collapse result panel"
-                                : "Expand result panel"
-                            }
-                          >
-                            <Maximize2 className="size-3.5" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon-sm"
-                            className="size-6 rounded-md"
-                            onClick={() => void copyResult(result?.response)}
-                            disabled={!result?.response}
-                            aria-label="Copy API response"
-                          >
-                            <Copy className="size-3.5" />
-                          </Button>
+                        <div className="hidden min-w-0 font-mono text-sm text-body @[22rem]:block">
+                          {section.methodLines.map((line) => (
+                            <p key={line} className="break-all leading-normal">
+                              {line}
+                            </p>
+                          ))}
                         </div>
                       </div>
+                      <ChevronUpDownIcon className="mt-1 size-4 shrink-0 text-icon dark:invert" />
+                    </button>
 
-                      <div
-                        className={cn(
-                          "overflow-auto rounded-xl bg-surface",
-                          expandedContent ? "h-[100dvh]" : "h-[287px]",
-                        )}
-                      >
-                        <ResultContent
-                          result={result}
-                          viewMode={viewMode}
-                          fillHeight
-                        />
+                    {isOpen ? (
+                      <div className="mt-5 space-y-2">
+                        <div className="flex shrink-0 items-center justify-between gap-3">
+                          <div className="flex rounded-lg bg-background p-1">
+                            <button
+                              type="button"
+                              onClick={() => setViewMode("table")}
+                              className={cn(
+                                "rounded-md px-2 py-1 text-xs font-semibold transition-colors",
+                                viewMode === "table"
+                                  ? "bg-heading text-surface"
+                                  : "text-muted-foreground",
+                              )}
+                            >
+                              Table
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setViewMode("code")}
+                              className={cn(
+                                "rounded-md px-2 py-1 text-xs font-semibold transition-colors",
+                                viewMode === "code"
+                                  ? "bg-heading text-surface"
+                                  : "text-muted-foreground",
+                              )}
+                            >
+                              Code
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon-sm"
+                              className="size-6 rounded-md"
+                              onClick={toggleExpandedContent}
+                              aria-label={
+                                expandedContent
+                                  ? "Collapse result panel"
+                                  : "Expand result panel"
+                              }
+                            >
+                              <Maximize2 className="size-3.5" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon-sm"
+                              className="size-6 rounded-md"
+                              onClick={() => void copyResult(result?.response)}
+                              disabled={!result?.response}
+                              aria-label="Copy API response"
+                            >
+                              <Copy className="size-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div
+                          className={cn(
+                            "overflow-auto rounded-xl bg-surface",
+                            expandedContent ? "h-[100dvh]" : "h-[287px]",
+                          )}
+                        >
+                          <ResultContent
+                            result={result}
+                            viewMode={viewMode}
+                            fillHeight
+                          />
+                        </div>
                       </div>
-                    </div>
-                  ) : null}
-                </section>
-              );
-            })}
-          </div>
-        ))}
+                    ) : null}
+                  </section>
+                );
+              })}
+            </div>
+          ))}
+        </div>
       </div>
+
+      {isRailCollapsed ? (
+        <div className="h-14 shrink-0 border-b border-border" aria-hidden />
+      ) : null}
     </aside>
   );
 }

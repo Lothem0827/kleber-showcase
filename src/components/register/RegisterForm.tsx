@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -49,10 +50,17 @@ import {
   type AddressCleanResult,
 } from "@/lib/kleber/address-clean";
 import type { ValidationCheckItem } from "@/lib/kleber/validation-checks";
+import {
+  formatAddressLine,
+  isAddressComplete,
+  type AddressParts,
+} from "@/lib/kleber/format-address";
 import { cn } from "@/lib/utils";
 import type { Country, Value as E164Number } from "react-phone-number-input";
 import { AddressCleanedCard } from "@/components/register/AddressCleanedCard";
+import { AddressConfirmDialog } from "@/components/register/AddressConfirmDialog";
 import { ValidationChecksCard } from "@/components/register/ValidationChecksCard";
+import { Button } from "@/components/ui/button";
 
 type FieldStatus = "idle" | "success" | "error";
 
@@ -97,6 +105,8 @@ function useRegisterForm(
   toggles: ApiToggles,
   requestKey?: string,
   mode: RegisterFormMode = "full",
+  onMissingApiKey?: () => void,
+  settingsOpen = false,
 ) {
   const [form, setForm] = useState<RegisterFormData>(INITIAL_FORM);
   const [manualEntry, setManualEntry] = useState(false);
@@ -117,6 +127,8 @@ function useRegisterForm(
     useState<RemoteValidationResult | null>(null);
   const [emailValidating, setEmailValidating] = useState(false);
   const [phoneValidating, setPhoneValidating] = useState(false);
+  const [confirmAddressOpen, setConfirmAddressOpen] = useState(false);
+  const missingKeyPromptedRef = useRef(false);
 
   const debouncedAddressQuery = useDebounce(form.addressLookup, 350);
   const debouncedEmail = useDebounce(form.email, 500);
@@ -137,6 +149,33 @@ function useRegisterForm(
     ) => callKleber(method, params, { requestKey }),
     [requestKey],
   );
+
+  const ensureApiKey = useCallback(() => {
+    if (requestKey?.trim()) {
+      missingKeyPromptedRef.current = false;
+      return true;
+    }
+    if (!missingKeyPromptedRef.current) {
+      missingKeyPromptedRef.current = true;
+      toast.error("API key is not configured");
+      onMissingApiKey?.();
+    }
+    return false;
+  }, [onMissingApiKey, requestKey]);
+
+  useEffect(() => {
+    if (requestKey?.trim()) {
+      missingKeyPromptedRef.current = false;
+    }
+  }, [requestKey]);
+
+  useEffect(() => {
+    if (settingsOpen) return;
+    const timeoutId = window.setTimeout(() => {
+      missingKeyPromptedRef.current = false;
+    }, 500);
+    return () => window.clearTimeout(timeoutId);
+  }, [settingsOpen]);
 
   const upsertMethodResult = useCallback((next: ValidationStepResult) => {
     setValidationResults((current) => {
@@ -186,6 +225,7 @@ function useRegisterForm(
 
   useEffect(() => {
     if (manualEntry || debouncedAddressQuery.length < 3) return;
+    if (!ensureApiKey()) return;
 
     let cancelled = false;
 
@@ -214,7 +254,7 @@ function useRegisterForm(
     return () => {
       cancelled = true;
     };
-  }, [debouncedAddressQuery, kleber, manualEntry]);
+  }, [debouncedAddressQuery, ensureApiKey, kleber, manualEntry]);
 
   useEffect(() => {
     if (!trackEmailResults || !toggles.verifyEmail) {
@@ -223,6 +263,7 @@ function useRegisterForm(
     if (!debouncedEmail || !debouncedEmail.includes("@")) {
       return;
     }
+    if (!ensureApiKey()) return;
     let cancelled = false;
     async function validateEmail() {
       setEmailValidating(true);
@@ -282,6 +323,7 @@ function useRegisterForm(
     };
   }, [
     debouncedEmail,
+    ensureApiKey,
     kleber,
     toggles.verifyEmail,
     trackEmailResults,
@@ -295,6 +337,7 @@ function useRegisterForm(
     if (!debouncedPhone || debouncedPhone.replace(/\D/g, "").length < 8) {
       return;
     }
+    if (!ensureApiKey()) return;
     let cancelled = false;
     async function validatePhone() {
       setPhoneValidating(true);
@@ -367,6 +410,7 @@ function useRegisterForm(
     };
   }, [
     debouncedPhone,
+    ensureApiKey,
     form.countryCode,
     kleber,
     toggles.verifyPhone,
@@ -432,10 +476,7 @@ function useRegisterForm(
     }
   };
 
-  const updateStep = (
-    method: string,
-    patch: Partial<ValidationStepResult>,
-  ) => {
+  const updateStep = (method: string, patch: Partial<ValidationStepResult>) => {
     setValidationResults((current) =>
       current.map((step) =>
         step.method === method ? { ...step, ...patch } : step,
@@ -584,11 +625,167 @@ function useRegisterForm(
 
   const needsAddress = mode === "full" || mode === "address";
 
+  const runAddressValidationFromParts = async (
+    addressLine1: string,
+    addressLine2: string,
+    suburb: string,
+    state: string,
+    postcode: string,
+    { repair }: { repair: boolean },
+  ) => {
+    try {
+      let addressWasCleaned = false;
+      let repairedParts: AddressParts | undefined;
+
+      if (repair) {
+        const beforeParts = {
+          addressLine1,
+          addressLine2,
+          suburb,
+          state,
+          postcode,
+        };
+        const repairResponse = await kleber(KLEBER_METHODS.REPAIR_ADDRESS, {
+          AddressLine1: addressLine1,
+          AddressLine2: addressLine2,
+          Locality: suburb,
+          State: state,
+          Postcode: postcode,
+        });
+        const repaired = getFirstResult<KleberAddressResult>(repairResponse);
+        if (repaired) {
+          const parts = String(repaired.AddressLine ?? addressLine1).split(",");
+          const buildingName = String(repaired.BuildingName || "").trim();
+          const streetLine = parts[0]?.trim() || addressLine1;
+          repairedParts = {
+            addressLine1: buildingName || streetLine || addressLine1,
+            addressLine2: buildingName
+              ? streetLine
+              : parts.length > 1
+                ? parts[1].trim()
+                : addressLine2,
+            suburb: String(repaired.Locality || suburb),
+            state: String(repaired.State || state),
+            postcode: String(repaired.Postcode || postcode),
+          };
+          const addressChanged =
+            repairedParts.addressLine1 !== beforeParts.addressLine1 ||
+            repairedParts.addressLine2 !== beforeParts.addressLine2 ||
+            repairedParts.suburb !== beforeParts.suburb ||
+            repairedParts.state !== beforeParts.state ||
+            repairedParts.postcode !== beforeParts.postcode;
+          if (addressChanged) {
+            setForm((current) => ({
+              ...current,
+              ...repairedParts,
+            }));
+          }
+          const cleanResult = buildAddressCleanResult(
+            beforeParts,
+            repairedParts,
+          );
+          if (cleanResult) {
+            setAddressCleanResult(cleanResult);
+            addressWasCleaned = true;
+          }
+        }
+      }
+
+      await runValidationChain(repairedParts);
+      if (addressWasCleaned) {
+        toast.success("Address cleaned into the standard postal format");
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Validation chain failed",
+      );
+    }
+  };
+
+  const submitManualAddress = async () => {
+    await runAddressValidationFromParts(
+      form.addressLine1,
+      form.addressLine2,
+      form.suburb,
+      form.state,
+      form.postcode,
+      { repair: true },
+    );
+  };
+
+  const clearManualAddress = useCallback(() => {
+    setConfirmAddressOpen(false);
+    setForm((current) => ({
+      ...current,
+      addressLine1: "",
+      addressLine2: "",
+      suburb: "",
+      state: "",
+      postcode: "",
+    }));
+    setAddressCleanResult(null);
+    setValidationResults((current) =>
+      current.filter((step) => !ADDRESS_METHODS.has(step.method)),
+    );
+    setAddressChecks([]);
+  }, []);
+
+  const handleSaveManualAddress = useCallback(() => {
+    const parts: AddressParts = {
+      addressLine1: form.addressLine1,
+      addressLine2: form.addressLine2,
+      suburb: form.suburb,
+      state: form.state,
+      postcode: form.postcode,
+    };
+    if (!isAddressComplete(parts)) {
+      toast.error("Complete address line 1, suburb, state, and postcode.");
+      return;
+    }
+    setConfirmAddressOpen(true);
+  }, [
+    form.addressLine1,
+    form.addressLine2,
+    form.postcode,
+    form.state,
+    form.suburb,
+  ]);
+
+  const handleConfirmProceed = async () => {
+    if (!ensureApiKey()) return;
+    setConfirmAddressOpen(false);
+    await submitManualAddress();
+  };
+
+  const formattedManualAddress = useMemo(
+    () =>
+      formatAddressLine({
+        addressLine1: form.addressLine1,
+        addressLine2: form.addressLine2,
+        suburb: form.suburb,
+        state: form.state,
+        postcode: form.postcode,
+      }),
+    [
+      form.addressLine1,
+      form.addressLine2,
+      form.postcode,
+      form.state,
+      form.suburb,
+    ],
+  );
+
   useEffect(() => {
     if (!needsAddress) return;
+    if (manualEntry && !addressFieldsLocked) return;
 
-    const [addressLine1 = "", addressLine2 = "", suburb = "", state = "", postcode = ""] =
-      debouncedAddressFingerprint.split("\u001f");
+    const [
+      addressLine1 = "",
+      addressLine2 = "",
+      suburb = "",
+      state = "",
+      postcode = "",
+    ] = debouncedAddressFingerprint.split("\u001f");
 
     const addressComplete =
       Boolean(addressLine1.trim()) &&
@@ -603,98 +800,24 @@ function useRegisterForm(
     let cancelled = false;
 
     async function runAddressValidation() {
-      try {
-        let addressWasCleaned = false;
-        let repairedParts:
-          | {
-              addressLine1: string;
-              addressLine2: string;
-              suburb: string;
-              state: string;
-              postcode: string;
-            }
-          | undefined;
-
-        if (manualEntry) {
-          const beforeParts = {
-            addressLine1,
-            addressLine2,
-            suburb,
-            state,
-            postcode,
-          };
-          const repairResponse = await kleber(KLEBER_METHODS.REPAIR_ADDRESS, {
-            AddressLine1: addressLine1,
-            AddressLine2: addressLine2,
-            Locality: suburb,
-            State: state,
-            Postcode: postcode,
-          });
-          if (cancelled) return;
-          const repaired = getFirstResult<KleberAddressResult>(repairResponse);
-          if (repaired) {
-            const parts = String(repaired.AddressLine ?? addressLine1).split(
-              ",",
-            );
-            const buildingName = String(repaired.BuildingName || "").trim();
-            const streetLine = parts[0]?.trim() || addressLine1;
-            repairedParts = {
-              addressLine1: buildingName || streetLine || addressLine1,
-              addressLine2: buildingName
-                ? streetLine
-                : parts.length > 1
-                  ? parts[1].trim()
-                  : addressLine2,
-              suburb: String(repaired.Locality || suburb),
-              state: String(repaired.State || state),
-              postcode: String(repaired.Postcode || postcode),
-            };
-            const addressChanged =
-              repairedParts.addressLine1 !== beforeParts.addressLine1 ||
-              repairedParts.addressLine2 !== beforeParts.addressLine2 ||
-              repairedParts.suburb !== beforeParts.suburb ||
-              repairedParts.state !== beforeParts.state ||
-              repairedParts.postcode !== beforeParts.postcode;
-            if (addressChanged) {
-              setForm((current) => ({
-                ...current,
-                ...repairedParts,
-              }));
-            }
-            const cleanResult = buildAddressCleanResult(
-              beforeParts,
-              repairedParts,
-            );
-            if (cleanResult) {
-              setAddressCleanResult(cleanResult);
-              addressWasCleaned = true;
-            }
-          }
-        }
-
-        if (cancelled) return;
-        await runValidationChain(repairedParts);
-        if (cancelled) return;
-        if (addressWasCleaned) {
-          toast.success("Address cleaned into the standard postal format");
-        }
-      } catch (error) {
-        if (!cancelled) {
-          toast.error(
-            error instanceof Error ? error.message : "Validation chain failed",
-          );
-        }
-      }
+      if (cancelled) return;
+      await runAddressValidationFromParts(
+        addressLine1,
+        addressLine2,
+        suburb,
+        state,
+        postcode,
+        { repair: manualEntry },
+      );
     }
 
     void runAddressValidation();
     return () => {
       cancelled = true;
     };
-    // Intentionally keyed off the debounced fingerprint + toggles/mode/manualEntry.
-    // runValidationChain closes over latest form/kleber via the effect deps below.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- address fingerprint drives re-runs
   }, [
+    addressFieldsLocked,
     debouncedAddressFingerprint,
     kleber,
     manualEntry,
@@ -779,6 +902,12 @@ function useRegisterForm(
     setAddressCleanResult,
     handleAddressSelect,
     clearAddressValidation,
+    confirmAddressOpen,
+    setConfirmAddressOpen,
+    formattedManualAddress,
+    clearManualAddress,
+    handleSaveManualAddress,
+    handleConfirmProceed,
   };
 }
 
@@ -910,6 +1039,12 @@ function AddressDetailsCard(props: {
   suburbStatus: FieldStatus;
   stateStatus: FieldStatus;
   postcodeStatus: FieldStatus;
+  confirmAddressOpen: boolean;
+  formattedManualAddress: string;
+  onConfirmAddressOpenChange: (open: boolean) => void;
+  onClearManualAddress: () => void;
+  onSaveManualAddress: () => void;
+  onConfirmProceed: () => void;
   onFieldChange: <K extends keyof RegisterFormData>(
     key: K,
     value: RegisterFormData[K],
@@ -918,6 +1053,8 @@ function AddressDetailsCard(props: {
   onUnlockAddress: () => void;
   onAddressSelect: (suggestion: AddressSuggestion) => void;
 }) {
+  const showManualActions = props.manualEntry && !props.addressFieldsLocked;
+
   return (
     <Card className="overflow-visible rounded-[12px] border border-border bg-card py-0 shadow-none">
       <CardHeader className="px-5 pt-5">
@@ -979,8 +1116,7 @@ function AddressDetailsCard(props: {
             {props.addressFieldsLocked ? (
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm text-muted-foreground">
-                  Address filled from search — edit if you need to change a unit
-                  or level.
+                  Address filled from search — edit if you need to change
                 </p>
                 <button
                   type="button"
@@ -1001,7 +1137,9 @@ function AddressDetailsCard(props: {
                 id="addressLine1"
                 value={props.form.addressLine1}
                 disabled={props.addressFieldsLocked}
-                placeholder="20 Bond St"
+                placeholder={
+                  !props.form.addressLine2.trim() ? "20 Bond St" : undefined
+                }
                 onChange={(e) =>
                   props.onFieldChange("addressLine1", e.target.value)
                 }
@@ -1017,7 +1155,11 @@ function AddressDetailsCard(props: {
                 id="addressLine2"
                 value={props.form.addressLine2}
                 disabled={props.addressFieldsLocked}
-                placeholder="Suite 301, Level 3"
+                placeholder={
+                  !props.form.addressLine1.trim()
+                    ? "Suite 301, Level 3"
+                    : undefined
+                }
                 onChange={(e) =>
                   props.onFieldChange("addressLine2", e.target.value)
                 }
@@ -1090,16 +1232,47 @@ function AddressDetailsCard(props: {
                 />
               </FormField>
             </div>
-            <p className="text-sm text-body font-medium">
-              Want to search for your address?{" "}
-              <button
-                type="button"
-                onClick={() => props.onManualEntryChange(false)}
-                className="font-medium text-brand hover:text-brand-hover"
-              >
-                Click Here
-              </button>
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-body font-medium">
+                Want to search for your address?{" "}
+                <button
+                  type="button"
+                  onClick={() => props.onManualEntryChange(false)}
+                  className="font-medium text-brand hover:text-brand-hover"
+                >
+                  Click Here
+                </button>
+              </p>
+              {showManualActions ? (
+                <div className="flex shrink-0 items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="lg"
+                    className="h-10 px-3 text-base font-medium"
+                    onClick={props.onClearManualAddress}
+                  >
+                    Clear
+                  </Button>
+                  <Button
+                    type="button"
+                    size="lg"
+                    className="h-10 px-3 text-base font-medium"
+                    onClick={props.onSaveManualAddress}
+                  >
+                    Save
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+            {showManualActions ? (
+              <AddressConfirmDialog
+                open={props.confirmAddressOpen}
+                onOpenChange={props.onConfirmAddressOpenChange}
+                formattedAddress={props.formattedManualAddress}
+                onProceed={props.onConfirmProceed}
+              />
+            ) : null}
           </div>
         )}
       </CardContent>
@@ -1112,6 +1285,8 @@ interface RegisterFormProps {
   requestKey?: string;
   mode?: RegisterFormMode;
   onValidationResultsChange?: (results: ValidationStepResult[]) => void;
+  onMissingApiKey?: () => void;
+  settingsOpen?: boolean;
 }
 
 export function RegisterForm({
@@ -1119,6 +1294,8 @@ export function RegisterForm({
   requestKey,
   mode = "full",
   onValidationResultsChange,
+  onMissingApiKey,
+  settingsOpen = false,
 }: RegisterFormProps) {
   const {
     form,
@@ -1147,7 +1324,13 @@ export function RegisterForm({
     setAddressCleanResult,
     handleAddressSelect,
     clearAddressValidation,
-  } = useRegisterForm(toggles, requestKey, mode);
+    confirmAddressOpen,
+    setConfirmAddressOpen,
+    formattedManualAddress,
+    clearManualAddress,
+    handleSaveManualAddress,
+    handleConfirmProceed,
+  } = useRegisterForm(toggles, requestKey, mode, onMissingApiKey, settingsOpen);
 
   useEffect(() => {
     onValidationResultsChange?.(validationResults);
@@ -1196,11 +1379,18 @@ export function RegisterForm({
           suburbStatus={suburbStatus}
           stateStatus={stateStatus}
           postcodeStatus={postcodeStatus}
+          confirmAddressOpen={confirmAddressOpen}
+          formattedManualAddress={formattedManualAddress}
+          onConfirmAddressOpenChange={setConfirmAddressOpen}
+          onClearManualAddress={clearManualAddress}
+          onSaveManualAddress={handleSaveManualAddress}
+          onConfirmProceed={() => void handleConfirmProceed()}
           onFieldChange={updateField}
           onManualEntryChange={(checked) => {
             setManualEntry(checked);
             setAddressFieldsLocked(false);
             setAddressCleanResult(null);
+            setConfirmAddressOpen(false);
             if (!checked) setAddressChecks([]);
           }}
           onUnlockAddress={() => {

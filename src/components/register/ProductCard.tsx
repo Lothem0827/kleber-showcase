@@ -12,7 +12,7 @@ export function ProductCard() {
         </p>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-4 space-y-0 px-5 pb-5">
-        <div className="flex h-40 shrink-0 items-end justify-center overflow-hidden rounded-xl bg-brand-subtle">
+        <div className="flex h-40 shrink-0 items-end justify-center overflow-hidden rounded-xl bg-charcoal-200">
           <ProductIllustration />
         </div>
         <div className="space-y-3">
@@ -24,7 +24,7 @@ export function ProductCard() {
               Limited Edition 2026
             </span>
           </div>
-          <p className="text-xl font-bold text-brand">$129.99</p>
+          <p className="text-xl font-bold ">$129.99</p>
           <div className="space-y-1 text-sm text-body">
             <p>✓ Free shipping</p>
             <p>✓ 30-day returns</p>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,7 +51,7 @@ const VALIDATION_GROUPS: ValidationGroup[] = [
     ],
   },
   {
-    label: "Address Validation",
+    label: "Address Verify",
     items: [
       {
         key: "verifyAddress",
@@ -82,6 +83,8 @@ const VALIDATION_GROUPS: ValidationGroup[] = [
 interface ApiSettingsProps {
   draft: ApiSettingsState;
   saved: ApiSettingsState;
+  missingApiKey?: boolean;
+  autoFocusKey?: boolean;
   onDraftChange: (draft: ApiSettingsState) => void;
   onDiscard: () => void;
   onSavedChange: () => void;
@@ -90,10 +93,20 @@ interface ApiSettingsProps {
 export function ApiSettings({
   draft,
   saved,
+  missingApiKey = false,
+  autoFocusKey = false,
   onDraftChange,
   onDiscard,
   onSavedChange,
 }: ApiSettingsProps) {
+  useEffect(() => {
+    if (!autoFocusKey) return;
+    const timeoutId = window.setTimeout(() => {
+      document.getElementById("testApiKey")?.focus();
+    }, 50);
+    return () => window.clearTimeout(timeoutId);
+  }, [autoFocusKey]);
+
   const updateToggle = (key: keyof ApiToggles, checked: boolean) => {
     onDraftChange({
       ...draft,
@@ -120,7 +133,7 @@ export function ApiSettings({
           API Settings
         </DrawerTitle>
         <DrawerDescription className="text-base text-body text-balance">
-          Configure your Kleber API credentials and choose which methods appear
+          Configure your Loqate API credentials and choose which methods appear
           in the showcase.
         </DrawerDescription>
       </DrawerHeader>
@@ -137,12 +150,24 @@ export function ApiSettings({
                 type="password"
                 autoComplete="off"
                 value={draft.testApiKey}
-                placeholder="Enter your Kleber test API key"
+                placeholder="Enter your Loqate test API key"
                 onChange={(e) =>
                   onDraftChange({ ...draft, testApiKey: e.target.value })
                 }
                 className="border-input"
+                aria-invalid={missingApiKey || undefined}
+                aria-describedby={
+                  missingApiKey ? "testApiKey-missing-hint" : undefined
+                }
               />
+              {missingApiKey ? (
+                <p
+                  id="testApiKey-missing-hint"
+                  className="text-sm text-destructive"
+                >
+                  Add an API key to continue testing the showcase.
+                </p>
+              ) : null}
             </div>
           </section>
 

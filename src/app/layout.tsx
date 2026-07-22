@@ -1,39 +1,21 @@
 import type { Metadata } from "next";
 import type { CSSProperties, ReactNode } from "react";
-import { Inter, JetBrains_Mono } from "next/font/google";
-import { ReactDevInspector } from "@/components/dev/ReactDevInspector";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-  preload: true,
-  adjustFontFallback: true,
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-jetbrains-mono",
-  display: "swap",
-  preload: false,
-  adjustFontFallback: true,
-});
-
 export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
   ),
   title: {
-    default: "Kleber Showcase",
-    template: "%s | Kleber Showcase",
+    default: "Loqate Showcase",
+    template: "%s | Loqate Showcase",
   },
   description:
-    "End-to-end address, phone, and email validation demo powered by Kleber APIs.",
+    "End-to-end address, phone, and email validation demo powered by Loqate APIs.",
   robots: {
     index: true,
     follow: true,
@@ -41,15 +23,21 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_AU",
-    title: "Kleber Showcase",
+    title: "Loqate Showcase",
     description:
-      "End-to-end address, phone, and email validation demo powered by Kleber APIs.",
-    siteName: "Kleber Showcase",
+      "End-to-end address, phone, and email validation demo powered by Loqate APIs.",
+    siteName: "Loqate Showcase",
   },
   icons: {
     icon: "/favicon.svg",
   },
 };
+
+const fontVars = {
+  "--font-inter": "Inter, ui-sans-serif, system-ui, sans-serif",
+  "--font-jetbrains-mono":
+    '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+} as CSSProperties;
 
 export default function RootLayout({
   children,
@@ -60,14 +48,21 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={cn("h-full font-sans", inter.variable, jetbrainsMono.variable)}
-      style={
-        {
-          "--font-inter": inter.style.fontFamily,
-          "--font-jetbrains-mono": jetbrainsMono.style.fontFamily,
-        } as CSSProperties
-      }
+      className={cn("h-full font-sans")}
+      style={fontVars}
     >
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body className="min-h-full flex flex-col antialiased">
         <ThemeProvider
           attribute="class"
@@ -76,7 +71,6 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <TooltipProvider>
-            <ReactDevInspector />
             {children}
             <Toaster />
           </TooltipProvider>

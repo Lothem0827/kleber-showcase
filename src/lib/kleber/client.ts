@@ -21,7 +21,7 @@ export async function callKleber(
   const data = (await response.json()) as KleberResponse & { error?: string };
 
   if (!response.ok) {
-    throw new Error(data.error ?? data.DtResponse?.ErrorMessage ?? "Kleber request failed");
+    throw new Error(data.error ?? data.DtResponse?.ErrorMessage ?? "Loqate request failed");
   }
 
   if (data.DtResponse?.ErrorMessage) {

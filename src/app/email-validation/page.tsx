@@ -4,7 +4,7 @@ import { ValidationPageShell } from "@/components/register/ValidationPageShell";
 
 export const metadata: Metadata = {
   title: "Email Validation",
-  description: "Verify email deliverability with Kleber.",
+  description: "Verify email deliverability with Loqate.",
 };
 
 export default function EmailValidationPage() {
@@ -13,7 +13,7 @@ export default function EmailValidationPage() {
       header={
         <ValidationPageHeader
           title="Email Validation"
-          subtitle="Verify email deliverability with Kleber"
+          subtitle="Verify email deliverability with Loqate"
         />
       }
       mode="email"

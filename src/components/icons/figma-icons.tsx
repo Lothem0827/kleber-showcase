@@ -242,25 +242,14 @@ export function SidebarCollapseIcon({ className }: { className?: string }) {
   );
 }
 
-export function LogoMark({ className }: { className?: string }) {
+export function ShowcaseLogo({ className }: { className?: string }) {
   return (
-    <SvgIcon
-      src="/icons/logo-mark.svg"
-      alt="Kleber"
-      className={cn("dark:brightness-0 dark:invert", className)}
-      size={28}
-    />
-  );
-}
-
-export function LogoWordmark({ className }: { className?: string }) {
-  return (
-    <span className={cn("relative inline-flex h-[14px] w-[141px] shrink-0", className)}>
+    <span className={cn("relative inline-flex h-7 w-[152px] shrink-0", className)}>
       <Image
-        src="/icons/logo-wordmark.svg"
-        alt="Kleber Showcase"
+        src="/icons/showcase-logo.svg"
+        alt="Showcase"
         fill
-        className="object-contain dark:invert"
+        className="object-contain dark:brightness-0 dark:invert"
       />
     </span>
   );

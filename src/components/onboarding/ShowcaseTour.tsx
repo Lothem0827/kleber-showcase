@@ -12,6 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const XL_QUERY = "(min-width: 80rem)";
+const COLLAPSE_TOUR_ID = "api-methods-collapse";
 
 type TourDef = {
   id: string;
@@ -26,21 +27,22 @@ const TOUR_DEFS: TourDef[] = [
     id: "nav-validations",
     title: "Validation pages",
     description:
-      "Switch between the full Kleber Showcase and focused address, phone, or email demos.",
+      "Switch between the full Loqate Showcase and focused address, phone, or email demos.",
     side: "right",
   },
   {
     id: "form-details",
     title: "Enter customer details",
     description:
-      "Add an email, phone number, and address — Kleber validates them automatically as you go.",
+      "Add an email, phone number, and address — Loqate validates them automatically as you go.",
     side: "bottom",
   },
   {
-    id: "api-methods",
-    title: "API Methods",
+    id: COLLAPSE_TOUR_ID,
+    desktopOnly: true,
+    title: "Collapse API Methods",
     description:
-      "Live Kleber responses appear here. Expand a method to inspect the table or JSON payload.",
+      "Use this icon to collapse the API Methods panel into a slim rail — or expand it again when you need live responses.",
     side: "left",
   },
   {
@@ -55,22 +57,64 @@ const TOUR_DEFS: TourDef[] = [
     id: "api-settings",
     title: "API Settings",
     description:
-      "Add your Kleber API key and choose which methods appear in the showcase.",
+      "Add your Loqate API key and choose which methods appear in the showcase.",
     side: "right",
   },
 ];
 
+function wait(ms: number) {
+  return new Promise<void>((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+function getCollapseToggle(): HTMLElement | undefined {
+  const node = queryTourTarget(COLLAPSE_TOUR_ID);
+  return node instanceof HTMLElement ? node : undefined;
+}
+
+async function demoCollapseExpand(refresh: () => void) {
+  let toggle = getCollapseToggle();
+  if (!toggle) return;
+
+  // Start from the collapsed rail so the expand click is visible.
+  if (toggle.getAttribute("aria-label") === "Collapse API Methods") {
+    toggle.click();
+    await wait(500);
+    toggle = getCollapseToggle();
+    refresh();
+  }
+
+  if (toggle?.getAttribute("aria-label") !== "Expand API Methods") return;
+
+  await wait(450);
+  toggle = getCollapseToggle();
+  toggle?.click();
+  await wait(350);
+  refresh();
+}
+
 function buildSteps(isDesktop: boolean): DriveStep[] {
   return TOUR_DEFS.filter((def) => !def.desktopOnly || isDesktop)
     .filter((def) => queryTourTarget(def.id) != null)
-    .map((def) => ({
-      element: () => queryTourTarget(def.id) as Element,
-      popover: {
-        title: def.title,
-        description: def.description,
-        side: def.side,
-      },
-    }));
+    .map((def) => {
+      const step: DriveStep = {
+        element: () => queryTourTarget(def.id) as Element,
+        popover: {
+          title: def.title,
+          description: def.description,
+          side: def.side,
+        },
+      };
+
+      if (def.id === COLLAPSE_TOUR_ID) {
+        step.onHighlighted = (_element, _step, { driver: active }) => {
+          void demoCollapseExpand(() => active.refresh());
+        };
+      }
+
+      return step;
+    });
 }
 
 function styleTourPopover(

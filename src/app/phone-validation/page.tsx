@@ -4,7 +4,7 @@ import { ValidationPageShell } from "@/components/register/ValidationPageShell";
 
 export const metadata: Metadata = {
   title: "Phone Validation",
-  description: "Check whether a phone number is connected with Kleber.",
+  description: "Check whether a phone number is connected with Loqate.",
 };
 
 export default function PhoneValidationPage() {
@@ -13,7 +13,7 @@ export default function PhoneValidationPage() {
       header={
         <ValidationPageHeader
           title="Phone Validation"
-          subtitle="Check whether a phone number is connected with Kleber"
+          subtitle="Check whether a phone number is connected with Loqate"
         />
       }
       mode="phone"

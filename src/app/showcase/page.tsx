@@ -3,9 +3,9 @@ import { ValidationPageHeader } from "@/components/register/ValidationPageHeader
 import { ValidationPageShell } from "@/components/register/ValidationPageShell";
 
 export const metadata: Metadata = {
-  title: "Kleber Showcase",
+  title: "Loqate Showcase",
   description:
-    "End-to-end address, phone, and email validation with Kleber.",
+    "End-to-end address, phone, and email validation with Loqate.",
 };
 
 export default function ShowcasePage() {
@@ -13,8 +13,8 @@ export default function ShowcasePage() {
     <ValidationPageShell
       header={
         <ValidationPageHeader
-          title="Kleber Showcase"
-          subtitle="End-to-end address, phone, and email validation with Kleber"
+          title="Loqate Showcase"
+          subtitle="End-to-end address, phone, and email validation with Loqate"
         />
       }
       mode="full"

@@ -73,13 +73,6 @@ const ApiSettings = dynamic(
   { ssr: false },
 );
 
-const SIDE_CARDS_HIDE_AT = 50;
-
-function shouldHideSideCards(workspace?: number) {
-  if (workspace == null) return false;
-  return workspace <= SIDE_CARDS_HIDE_AT;
-}
-
 export function ValidationPageShell({
   header,
   mode,
@@ -116,29 +109,22 @@ export function ValidationPageShell({
   const [validationResults, setValidationResults] = useState<
     ValidationStepResult[]
   >([]);
-  const [showSideCards, setShowSideCards] = useState(enableSideCards);
   const groupRef = useGroupRef();
   const previousLayoutRef = useRef<{ workspace: number; api: number } | null>(
     null,
   );
 
   const draft = draftSettings ?? savedSettings;
+  const missingApiKey = !savedSettings.testApiKey.trim();
+
+  const openSettings = useCallback(() => {
+    setSettingsOpen(true);
+  }, []);
 
   const closeSettings = useCallback(() => {
     setSettingsOpen(false);
     setDraftSettings(null);
   }, []);
-
-  const syncSideCardsVisibility = useCallback(
-    (workspace?: number) => {
-      if (!enableSideCards) {
-        setShowSideCards(false);
-        return;
-      }
-      setShowSideCards(!shouldHideSideCards(workspace));
-    },
-    [enableSideCards],
-  );
 
   const ensureApiAtLeastHalf = useCallback(() => {
     const current = groupRef.current?.getLayout();
@@ -156,7 +142,6 @@ export function ValidationPageShell({
       };
     }
     groupRef.current?.setLayout({ workspace: 50, api: 50 });
-    setShowSideCards(false);
   }, [groupRef]);
 
   const restorePreviousSplit = useCallback(() => {
@@ -164,14 +149,13 @@ export function ValidationPageShell({
     if (!previous) return;
 
     groupRef.current?.setLayout(previous);
-    syncSideCardsVisibility(previous.workspace);
     previousLayoutRef.current = null;
-  }, [groupRef, syncSideCardsVisibility]);
+  }, [groupRef]);
 
   return (
     <AppShell
       settingsOpen={settingsOpen}
-      onOpenSettings={() => setSettingsOpen(true)}
+      onOpenSettings={openSettings}
       onCloseSettings={closeSettings}
     >
       {isXl ? (
@@ -183,8 +167,9 @@ export function ValidationPageShell({
             requestKey={savedSettings.testApiKey}
             validationResults={validationResults}
             onValidationResultsChange={setValidationResults}
-            showSideCards={enableSideCards && showSideCards}
-            onWorkspaceResize={syncSideCardsVisibility}
+            onMissingApiKey={openSettings}
+            settingsOpen={settingsOpen}
+            enableSideCards={enableSideCards}
             groupRef={groupRef}
             onExpandWidth={ensureApiAtLeastHalf}
             onCollapseWidth={restorePreviousSplit}
@@ -199,6 +184,8 @@ export function ValidationPageShell({
               toggles={savedSettings.toggles}
               requestKey={savedSettings.testApiKey}
               onValidationResultsChange={setValidationResults}
+              onMissingApiKey={openSettings}
+              settingsOpen={settingsOpen}
             />
           </div>
           <ApiMethodsPanel
@@ -227,6 +214,8 @@ export function ValidationPageShell({
           <ApiSettings
             draft={draft}
             saved={savedSettings}
+            missingApiKey={missingApiKey}
+            autoFocusKey={settingsOpen && missingApiKey}
             onDraftChange={setDraftSettings}
             onDiscard={closeSettings}
             onSavedChange={() => {

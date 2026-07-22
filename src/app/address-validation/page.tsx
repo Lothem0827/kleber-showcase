@@ -3,8 +3,8 @@ import { ValidationPageHeader } from "@/components/register/ValidationPageHeader
 import { ValidationPageShell } from "@/components/register/ValidationPageShell";
 
 export const metadata: Metadata = {
-  title: "Address Validation",
-  description: "Validate and repair Australian addresses with Kleber.",
+  title: "Address Verify",
+  description: "Validate and repair Australian addresses with Loqate.",
 };
 
 export default function AddressValidationPage() {
@@ -12,8 +12,8 @@ export default function AddressValidationPage() {
     <ValidationPageShell
       header={
         <ValidationPageHeader
-          title="Address Validation"
-          subtitle="Validate and repair Australian addresses with Kleber"
+          title="Address Verify"
+          subtitle="Validate and repair Australian addresses with Loqate"
         />
       }
       mode="address"
