@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: "Validate and repair Australian addresses with Loqate.",
 };
 
-export default function AddressValidationPage() {
+export default function AddressVerifyPage() {
   return (
     <ValidationPageShell
       header={

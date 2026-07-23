@@ -474,8 +474,8 @@ function useRegisterForm(
     setAddressCleanResult(null);
 
     updateField("addressLookup", suggestion.AddressLine);
-    updateField("addressLine1", suggestion.AddressLine);
-    updateField("addressLine2", suggestion.AddressLine1);
+    updateField("addressLine1", suggestion.AddressLine1);
+    updateField("addressLine2", suggestion.AddressLine2);
     updateField("suburb", suggestion.Locality);
     updateField("state", suggestion.State);
     updateField("postcode", suggestion.Postcode);
@@ -673,7 +673,10 @@ function useRegisterForm(
     suburb: string,
     state: string,
     postcode: string,
-    { repair }: { repair: boolean },
+    {
+      repair,
+      isCancelled,
+    }: { repair: boolean; isCancelled?: () => boolean },
   ) => {
     try {
       let addressWasCleaned = false;
@@ -694,6 +697,7 @@ function useRegisterForm(
           State: state,
           Postcode: postcode,
         });
+        if (isCancelled?.()) return;
         const repaired = getFirstResult<KleberAddressResult>(repairResponse);
         if (repaired) {
           const street = mapRepairedStreetLines(repaired, addressLine1);
@@ -723,15 +727,20 @@ function useRegisterForm(
           if (cleanResult) {
             setAddressCleanResult(cleanResult);
             addressWasCleaned = true;
+          } else {
+            setAddressCleanResult(null);
           }
         }
       }
 
+      if (isCancelled?.()) return;
       await runValidationChain(repairedParts);
+      if (isCancelled?.()) return;
       if (addressWasCleaned) {
         toast.success("Address cleaned into the standard postal format");
       }
     } catch (error) {
+      if (isCancelled?.()) return;
       toast.error(
         error instanceof Error ? error.message : "Validation chain failed",
       );
@@ -844,7 +853,7 @@ function useRegisterForm(
         suburb,
         state,
         postcode,
-        { repair: manualEntry },
+        { repair: manualEntry, isCancelled: () => cancelled },
       );
     }
 

@@ -39,7 +39,7 @@ const showcaseItems = [
   },
   {
     id: "address" as const,
-    href: "/address-validation",
+    href: "/address-verify",
     label: "Address Verify",
     icon: AddressIcon,
   },
