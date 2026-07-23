@@ -26,6 +26,7 @@ export function ScenarioSelect({ className }: { className?: string }) {
       }}
     >
       <SelectTrigger
+        data-tour="scenario-select"
         aria-label="Demo scenario"
         className={className ?? "min-w-[220px]"}
         icon={

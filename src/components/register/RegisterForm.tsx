@@ -1312,7 +1312,7 @@ function AddressDetailsCard(props: {
                 />
               </FormField>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <p className="text-sm text-body font-medium">
                 Want to search for your address?{" "}
                 <button
@@ -1324,12 +1324,12 @@ function AddressDetailsCard(props: {
                 </button>
               </p>
               {showManualActions ? (
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:shrink-0 sm:items-center">
                   <Button
                     type="button"
                     variant="ghost"
                     size="lg"
-                    className="h-10 px-3 text-base font-medium"
+                    className="h-10 w-full px-3 text-base font-medium sm:w-auto"
                     onClick={props.onClearManualAddress}
                   >
                     Clear
@@ -1337,7 +1337,7 @@ function AddressDetailsCard(props: {
                   <Button
                     type="button"
                     size="lg"
-                    className="h-10 px-3 text-base font-medium"
+                    className="h-10 w-full px-3 text-base font-medium sm:w-auto"
                     onClick={props.onSaveManualAddress}
                   >
                     Save

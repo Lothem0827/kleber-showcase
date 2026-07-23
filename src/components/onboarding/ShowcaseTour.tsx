@@ -9,10 +9,13 @@ import {
   markOnboardingComplete,
   queryTourTarget,
 } from "@/lib/onboarding";
+import { DEFAULT_SHOWCASE_SCENARIO } from "@/lib/showcase/scenarios";
+import { saveShowcaseScenario } from "@/lib/showcase/scenario-storage";
 import { cn } from "@/lib/utils";
 
 const XL_QUERY = "(min-width: 80rem)";
 const COLLAPSE_TOUR_ID = "api-methods-collapse";
+const SCENARIO_TOUR_ID = "scenario-select";
 
 type TourDef = {
   id: string;
@@ -29,6 +32,13 @@ const TOUR_DEFS: TourDef[] = [
     description:
       "Switch between the full Loqate Showcase and focused address, phone, or email demos.",
     side: "right",
+  },
+  {
+    id: SCENARIO_TOUR_ID,
+    title: "Demo scenarios",
+    description:
+      "Switch between Express Checkout and Loan Application to see how the same validations fit different flows.",
+    side: "bottom",
   },
   {
     id: "form-details",
@@ -94,6 +104,16 @@ async function demoCollapseExpand(refresh: () => void) {
   refresh();
 }
 
+async function demoScenarioSwap(refresh: () => void) {
+  saveShowcaseScenario("loanApplication");
+  await wait(400);
+  refresh();
+}
+
+function restoreDefaultScenario() {
+  saveShowcaseScenario(DEFAULT_SHOWCASE_SCENARIO);
+}
+
 function buildSteps(isDesktop: boolean): DriveStep[] {
   return TOUR_DEFS.filter((def) => !def.desktopOnly || isDesktop)
     .filter((def) => queryTourTarget(def.id) != null)
@@ -110,6 +130,15 @@ function buildSteps(isDesktop: boolean): DriveStep[] {
       if (def.id === COLLAPSE_TOUR_ID) {
         step.onHighlighted = (_element, _step, { driver: active }) => {
           void demoCollapseExpand(() => active.refresh());
+        };
+      }
+
+      if (def.id === SCENARIO_TOUR_ID) {
+        step.onHighlighted = (_element, _step, { driver: active }) => {
+          void demoScenarioSwap(() => active.refresh());
+        };
+        step.onDeselected = () => {
+          restoreDefaultScenario();
         };
       }
 
