@@ -19,7 +19,10 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import type { ApiSettingsState, ValidationStepResult } from "@/lib/kleber/types";
+import type {
+  ApiSettingsState,
+  ValidationStepResult,
+} from "@/lib/kleber/types";
 
 const ProductCard = dynamic(
   () =>
@@ -45,8 +48,7 @@ const GRID_GAP_PX = 20;
  * When the workspace grid is this narrow or smaller, the form column would be
  * ≤ the cards column (350px). Hide cards so Personal / Address details keep room.
  */
-const SIDE_CARDS_HIDE_AT_OR_BELOW_PX =
-  SIDE_CARDS_COLUMN_PX * 2 + GRID_GAP_PX;
+const SIDE_CARDS_HIDE_AT_OR_BELOW_PX = SIDE_CARDS_COLUMN_PX * 2 + GRID_GAP_PX;
 
 export function DesktopValidationLayout({
   header,
@@ -77,11 +79,11 @@ export function DesktopValidationLayout({
 }) {
   const apiPanelRef = usePanelRef();
   const gridRef = useRef<HTMLDivElement>(null);
-  const [apiCollapsed, setApiCollapsed] = useState(false);
+  const [apiCollapsed, setApiCollapsed] = useState(true);
   const [sideCardsFit, setSideCardsFit] = useState(true);
 
   const syncApiCollapsed = useCallback(() => {
-    const next = apiPanelRef.current?.isCollapsed() ?? false;
+    const next = apiPanelRef.current?.isCollapsed() ?? true;
     // Defer past the panel library's layout pass to avoid React fiber crashes.
     queueMicrotask(() => {
       setApiCollapsed((prev) => (prev === next ? prev : next));
@@ -89,8 +91,23 @@ export function DesktopValidationLayout({
   }, [apiPanelRef]);
 
   useEffect(() => {
-    syncApiCollapsed();
-  }, [syncApiCollapsed]);
+    let cancelled = false;
+    const collapseOnLoad = () => {
+      if (cancelled) return;
+      apiPanelRef.current?.collapse();
+      syncApiCollapsed();
+    };
+    // Run after paint so the panel ref exists; again after hydration remount.
+    collapseOnLoad();
+    const frame = requestAnimationFrame(() => {
+      collapseOnLoad();
+      requestAnimationFrame(collapseOnLoad);
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+    };
+  }, [apiPanelRef, syncApiCollapsed]);
 
   useEffect(() => {
     if (!enableSideCards) {
@@ -123,18 +140,24 @@ export function DesktopValidationLayout({
     }
   }, [apiPanelRef]);
 
+  const expandApiPanel = useCallback(() => {
+    const panel = apiPanelRef.current;
+    if (!panel || !panel.isCollapsed()) return;
+    panel.expand();
+  }, [apiPanelRef]);
+
   const showSideCards = enableSideCards && sideCardsFit;
 
   return (
     <ResizablePanelGroup
       groupRef={groupRef}
-      autoSaveId="kleber-register"
+      autoSaveId="kleber-register-api-collapsed"
       className="h-full w-full"
       onLayoutChanged={() => {
         syncApiCollapsed();
       }}
     >
-      <ResizablePanel id="workspace" defaultSize="60" minSize="30">
+      <ResizablePanel id="workspace" defaultSize="100" minSize="30">
         <div className="h-full min-h-0 overflow-y-auto p-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {header}
           <div
@@ -152,6 +175,8 @@ export function DesktopValidationLayout({
               onValidationResultsChange={onValidationResultsChange}
               onMissingApiKey={onMissingApiKey}
               settingsOpen={settingsOpen}
+              apiMethodsCollapsed={apiCollapsed}
+              onOpenApiMethods={expandApiPanel}
             />
             {showSideCards ? (
               <div className="grid grid-rows-2 gap-5 [grid-template-rows:1fr_1fr]">
@@ -168,7 +193,7 @@ export function DesktopValidationLayout({
       />
       <ResizablePanel
         id="api"
-        defaultSize="40"
+        defaultSize={48}
         minSize="20"
         collapsible
         collapsedSize={48}

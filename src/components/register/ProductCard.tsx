@@ -12,7 +12,7 @@ export function ProductCard() {
         </p>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-4 space-y-0 px-5 pb-5">
-        <div className="flex h-40 shrink-0 items-end justify-center overflow-hidden rounded-xl bg-charcoal-200">
+        <div className="flex h-40 shrink-0 items-end justify-center overflow-hidden rounded-xl bg-charcoal-200 dark:bg-charcoal-300">
           <ProductIllustration />
         </div>
         <div className="space-y-3">

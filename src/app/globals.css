@@ -285,6 +285,55 @@ html.dark {
   [data-panel] > div {
     overflow: hidden !important;
   }
+
+  /*
+   * Browser autofill paints a light-blue background that overrides bg-surface.
+   * Use a large inset shadow to restyle it; keep success/warning/error fills.
+   */
+  [data-slot="input"]:-webkit-autofill,
+  [data-slot="input"]:-webkit-autofill:hover,
+  [data-slot="input"]:-webkit-autofill:focus,
+  [data-slot="input"]:-webkit-autofill:active {
+    -webkit-text-fill-color: var(--foreground);
+    caret-color: var(--foreground);
+    box-shadow: 0 0 0 1000px var(--surface) inset;
+    transition: background-color 99999s ease-out 0s;
+  }
+
+  [data-slot="input"][data-valid="true"]:-webkit-autofill,
+  [data-slot="input"][data-valid="true"]:-webkit-autofill:hover,
+  [data-slot="input"][data-valid="true"]:-webkit-autofill:focus,
+  [data-slot="input"][data-valid="true"]:-webkit-autofill:active {
+    box-shadow: 0 0 0 1000px #ecfdf5 inset; /* emerald-50 */
+  }
+
+  [data-slot="input"][data-warning="true"]:-webkit-autofill,
+  [data-slot="input"][data-warning="true"]:-webkit-autofill:hover,
+  [data-slot="input"][data-warning="true"]:-webkit-autofill:focus,
+  [data-slot="input"][data-warning="true"]:-webkit-autofill:active {
+    box-shadow: 0 0 0 1000px #fffbeb inset; /* amber-50 */
+  }
+
+  [data-slot="input"][aria-invalid="true"]:-webkit-autofill,
+  [data-slot="input"][aria-invalid="true"]:-webkit-autofill:hover,
+  [data-slot="input"][aria-invalid="true"]:-webkit-autofill:focus,
+  [data-slot="input"][aria-invalid="true"]:-webkit-autofill:active {
+    box-shadow: 0 0 0 1000px #fef2f2 inset; /* red-50 */
+  }
+
+  .dark [data-slot="input"][data-valid="true"]:-webkit-autofill,
+  .dark [data-slot="input"][data-valid="true"]:-webkit-autofill:hover,
+  .dark [data-slot="input"][data-valid="true"]:-webkit-autofill:focus,
+  .dark [data-slot="input"][data-valid="true"]:-webkit-autofill:active {
+    box-shadow: 0 0 0 1000px color-mix(in oklab, #022c22 30%, transparent) inset;
+  }
+
+  .dark [data-slot="input"][data-warning="true"]:-webkit-autofill,
+  .dark [data-slot="input"][data-warning="true"]:-webkit-autofill:hover,
+  .dark [data-slot="input"][data-warning="true"]:-webkit-autofill:focus,
+  .dark [data-slot="input"][data-warning="true"]:-webkit-autofill:active {
+    box-shadow: 0 0 0 1000px color-mix(in oklab, #451a03 30%, transparent) inset;
+  }
 }
 
 /* Sonner hardcodes a drop shadow — remove it for flat toasts. */

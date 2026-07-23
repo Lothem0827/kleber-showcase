@@ -68,7 +68,7 @@ export function JsonHighlight({
   return (
     <pre
       className={cn(
-        "h-full font-mono text-sm leading-relaxed text-body",
+        "font-mono text-sm leading-relaxed text-body",
         className,
       )}
     >

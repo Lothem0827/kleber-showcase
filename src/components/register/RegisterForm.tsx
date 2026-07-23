@@ -44,7 +44,7 @@ import {
 } from "@/lib/kleber/validation";
 import { buildEmailChecks } from "@/lib/kleber/email-checks";
 import { buildPhoneChecks } from "@/lib/kleber/phone-checks";
-import { buildAddressChecks } from "@/lib/kleber/address-checks";
+import { buildAddressChecks, getAddressMatchFieldStatus } from "@/lib/kleber/address-checks";
 import {
   buildAddressCleanResult,
   type AddressCleanResult,
@@ -62,7 +62,7 @@ import { AddressConfirmDialog } from "@/components/register/AddressConfirmDialog
 import { ValidationChecksCard } from "@/components/register/ValidationChecksCard";
 import { Button } from "@/components/ui/button";
 
-type FieldStatus = "idle" | "success" | "error";
+type FieldStatus = "idle" | "success" | "error" | "warning";
 
 export type RegisterFormMode = "full" | "address" | "phone" | "email";
 
@@ -78,7 +78,17 @@ function fieldValidityProps(status: FieldStatus) {
   return {
     "aria-invalid": status === "error" || undefined,
     "data-valid": status === "success" ? true : undefined,
+    "data-warning": status === "warning" ? true : undefined,
   } as const;
+}
+
+/** Apply shared address outcome only to fields that have a value. */
+function addressFieldVisualStatus(
+  value: string,
+  outcome: FieldStatus,
+): FieldStatus {
+  if (!value.trim() || outcome === "idle") return "idle";
+  return outcome;
 }
 
 const INITIAL_FORM: RegisterFormData = {
@@ -121,6 +131,8 @@ function useRegisterForm(
   const [emailChecks, setEmailChecks] = useState<ValidationCheckItem[]>([]);
   const [phoneChecks, setPhoneChecks] = useState<ValidationCheckItem[]>([]);
   const [addressChecks, setAddressChecks] = useState<ValidationCheckItem[]>([]);
+  const [addressFieldStatus, setAddressFieldStatus] =
+    useState<FieldStatus>("idle");
   const [addressCleanResult, setAddressCleanResult] =
     useState<AddressCleanResult | null>(null);
   const [phoneValidation, setPhoneValidation] =
@@ -210,6 +222,7 @@ function useRegisterForm(
       key === "postcode"
     ) {
       setAddressCleanResult(null);
+      setAddressFieldStatus("idle");
     }
     if (key === "email" && (!value || !String(value).includes("@"))) {
       setEmailValidation(null);
@@ -467,9 +480,11 @@ function useRegisterForm(
           (repaired.Postcode as string) ?? suggestion.Postcode,
         );
         setAddressChecks(buildAddressChecks(repaired));
+        setAddressFieldStatus(getAddressMatchFieldStatus(repaired));
       }
     } catch (error) {
       setAddressChecks([]);
+      setAddressFieldStatus("idle");
       toast.error(
         error instanceof Error ? error.message : "Address repair failed",
       );
@@ -545,20 +560,19 @@ function useRegisterForm(
           KLEBER_METHODS.VERIFY_ADDRESS,
           addressPayload,
         );
+        const verified = getFirstResult<KleberAddressResult>(verifyResponse);
         updateStep(KLEBER_METHODS.VERIFY_ADDRESS, {
           loading: false,
           response: verifyResponse,
         });
-        setAddressChecks(
-          buildAddressChecks(
-            getFirstResult<KleberAddressResult>(verifyResponse),
-          ),
-        );
+        setAddressChecks(buildAddressChecks(verified));
+        setAddressFieldStatus(getAddressMatchFieldStatus(verified));
       } catch (error) {
         updateStep(KLEBER_METHODS.VERIFY_ADDRESS, {
           loading: false,
           error: error instanceof Error ? error.message : "Verify failed",
         });
+        setAddressFieldStatus("warning");
         throw error;
       }
     }
@@ -724,6 +738,7 @@ function useRegisterForm(
       postcode: "",
     }));
     setAddressCleanResult(null);
+    setAddressFieldStatus("idle");
     setValidationResults((current) =>
       current.filter((step) => !ADDRESS_METHODS.has(step.method)),
     );
@@ -855,19 +870,25 @@ function useRegisterForm(
 
   const emailFieldStatus = remoteFieldStatus(emailValidating, emailValidation);
   const phoneFieldStatus = remoteFieldStatus(phoneValidating, phoneValidation);
-  const addressLine1Status: FieldStatus = form.addressLine1.trim()
-    ? "success"
-    : "idle";
-  const addressLine2Status: FieldStatus = form.addressLine2.trim()
-    ? "success"
-    : "idle";
-  const suburbStatus: FieldStatus = form.suburb.trim() ? "success" : "idle";
-  const stateStatus: FieldStatus = form.state.trim() ? "success" : "idle";
-  const postcodeStatus: FieldStatus = form.postcode.trim() ? "success" : "idle";
+  const addressLine1Status = addressFieldVisualStatus(
+    form.addressLine1,
+    addressFieldStatus,
+  );
+  const addressLine2Status = addressFieldVisualStatus(
+    form.addressLine2,
+    addressFieldStatus,
+  );
+  const suburbStatus = addressFieldVisualStatus(form.suburb, addressFieldStatus);
+  const stateStatus = addressFieldVisualStatus(form.state, addressFieldStatus);
+  const postcodeStatus = addressFieldVisualStatus(
+    form.postcode,
+    addressFieldStatus,
+  );
 
   const clearAddressValidation = () => {
     setAddressChecks([]);
     setAddressCleanResult(null);
+    setAddressFieldStatus("idle");
     setValidationResults((current) =>
       current.filter((step) => !ADDRESS_METHODS.has(step.method)),
     );
@@ -889,6 +910,7 @@ function useRegisterForm(
     emailChecks,
     phoneChecks,
     addressChecks,
+    addressFieldStatus,
     addressCleanResult,
     addressLine1Status,
     addressLine2Status,
@@ -900,6 +922,7 @@ function useRegisterForm(
     setAddressFieldsLocked,
     setAddressChecks,
     setAddressCleanResult,
+    setAddressFieldStatus,
     handleAddressSelect,
     clearAddressValidation,
     confirmAddressOpen,
@@ -939,6 +962,7 @@ function FormField({
             "text-sm",
             status === "success" && "text-emerald-700 dark:text-emerald-400",
             status === "error" && "text-destructive",
+            status === "warning" && "text-amber-700 dark:text-amber-400",
             status === "idle" && "text-muted-foreground",
           )}
         >
@@ -1287,6 +1311,8 @@ interface RegisterFormProps {
   onValidationResultsChange?: (results: ValidationStepResult[]) => void;
   onMissingApiKey?: () => void;
   settingsOpen?: boolean;
+  apiMethodsCollapsed?: boolean;
+  onOpenApiMethods?: () => void;
 }
 
 export function RegisterForm({
@@ -1296,6 +1322,8 @@ export function RegisterForm({
   onValidationResultsChange,
   onMissingApiKey,
   settingsOpen = false,
+  apiMethodsCollapsed = false,
+  onOpenApiMethods,
 }: RegisterFormProps) {
   const {
     form,
@@ -1311,6 +1339,7 @@ export function RegisterForm({
     emailChecks,
     phoneChecks,
     addressChecks,
+    addressFieldStatus,
     addressCleanResult,
     addressLine1Status,
     addressLine2Status,
@@ -1322,6 +1351,7 @@ export function RegisterForm({
     setAddressFieldsLocked,
     setAddressChecks,
     setAddressCleanResult,
+    setAddressFieldStatus,
     handleAddressSelect,
     clearAddressValidation,
     confirmAddressOpen,
@@ -1347,7 +1377,9 @@ export function RegisterForm({
         ? phoneChecks
         : mode === "address"
           ? addressChecks
-          : [];
+          : addressFieldStatus === "warning"
+            ? addressChecks
+            : [];
 
   return (
     <div className="space-y-5" data-tour="form-details">
@@ -1390,6 +1422,7 @@ export function RegisterForm({
             setManualEntry(checked);
             setAddressFieldsLocked(false);
             setAddressCleanResult(null);
+            setAddressFieldStatus("idle");
             setConfirmAddressOpen(false);
             if (!checked) setAddressChecks([]);
           }}
@@ -1406,7 +1439,11 @@ export function RegisterForm({
       ) : null}
 
       {activeChecks.length > 0 ? (
-        <ValidationChecksCard checks={activeChecks} />
+        <ValidationChecksCard
+          checks={activeChecks}
+          showOpenApiMethods={Boolean(apiMethodsCollapsed && onOpenApiMethods)}
+          onOpenApiMethods={onOpenApiMethods}
+        />
       ) : null}
     </div>
   );

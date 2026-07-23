@@ -9,7 +9,11 @@ function checkVariant(status: ValidationCheckItem["status"]) {
   return "destructive" as const;
 }
 
-function CheckStatusIcon({ status }: { status: ValidationCheckItem["status"] }) {
+function CheckStatusIcon({
+  status,
+}: {
+  status: ValidationCheckItem["status"];
+}) {
   if (status === "success") {
     return <CheckIcon />;
   }
@@ -21,10 +25,16 @@ function CheckStatusIcon({ status }: { status: ValidationCheckItem["status"] }) 
 
 export function ValidationChecksCard({
   checks,
+  showOpenApiMethods = false,
+  onOpenApiMethods,
 }: {
   checks: ValidationCheckItem[];
+  showOpenApiMethods?: boolean;
+  onOpenApiMethods?: () => void;
 }) {
   if (checks.length === 0) return null;
+
+  const showApiLink = showOpenApiMethods && onOpenApiMethods != null;
 
   return (
     <Card className="rounded-[12px] border border-border bg-card py-0 shadow-none">
@@ -33,19 +43,33 @@ export function ValidationChecksCard({
           What Was Checked
         </CardTitle>
       </CardHeader>
-      <CardContent className="grid gap-2.5 px-5 pb-5 sm:grid-cols-2">
-        {checks.map((check) => (
-          <Alert
-            key={check.id}
-            variant={checkVariant(check.status)}
-            className="items-start rounded-xl px-4 py-4"
-          >
-            <CheckStatusIcon status={check.status} />
-            <AlertDescription className="font-medium text-current">
-              {check.message}
-            </AlertDescription>
-          </Alert>
-        ))}
+      <CardContent className="flex flex-col gap-2.5 px-5 pb-5">
+        <div className="grid gap-2.5 sm:grid-cols-2">
+          {checks.map((check) => (
+            <Alert
+              key={check.id}
+              variant={checkVariant(check.status)}
+              className="items-start rounded-xl px-4 py-4"
+            >
+              <CheckStatusIcon status={check.status} />
+              <AlertDescription className="font-medium text-current">
+                {check.message}
+              </AlertDescription>
+            </Alert>
+          ))}
+        </div>
+        {showApiLink ? (
+          <p className="text-sm text-body font-medium mt-2">
+            Want to inspect the API responses?{" "}
+            <button
+              type="button"
+              onClick={onOpenApiMethods}
+              className="font-medium text-brand hover:text-brand-hover"
+            >
+              Open API Methods
+            </button>
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   );

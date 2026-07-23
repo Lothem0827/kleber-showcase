@@ -7,6 +7,19 @@ import {
 const GOOD_MATCH_TYPES = new Set(["0", "18", "20"]);
 const WARNING_MATCH_TYPES = new Set(["9"]);
 
+export type AddressMatchFieldStatus = "success" | "warning";
+
+/** Input-field color after verify: green for a good match, amber otherwise. */
+export function getAddressMatchFieldStatus(
+  result: KleberAddressResult | null | undefined,
+): AddressMatchFieldStatus {
+  if (!result) return "warning";
+  const matchType = asString(result.MatchType);
+  const dpid = asString(result.DPID);
+  if (GOOD_MATCH_TYPES.has(matchType) || Boolean(dpid)) return "success";
+  return "warning";
+}
+
 /** Map AuPaf verify/repair address fields into user-facing check cards. */
 export function buildAddressChecks(
   result: KleberAddressResult | null | undefined,

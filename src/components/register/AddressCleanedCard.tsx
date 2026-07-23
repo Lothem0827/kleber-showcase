@@ -1,5 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { AddressCleanResult, AddressCleanSegment } from "@/lib/kleber/address-clean";
+import type {
+  AddressCleanResult,
+  AddressCleanSegment,
+} from "@/lib/kleber/address-clean";
 import { cn } from "@/lib/utils";
 
 function HighlightedAddress({
@@ -43,7 +46,7 @@ export function AddressCleanedCard({ result }: { result: AddressCleanResult }) {
     <Card className="rounded-[12px] border border-border bg-card py-0 shadow-none">
       <CardHeader className="px-5 pt-5 pb-0">
         <CardTitle className="text-base font-semibold text-heading">
-          Address cleaned
+          Address Cleaned
         </CardTitle>
       </CardHeader>
       <CardContent className="grid gap-4 px-5 pb-5 sm:grid-cols-2">

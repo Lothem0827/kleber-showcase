@@ -7,6 +7,7 @@ import { ChevronUpDownIcon } from "@/components/icons/figma-icons";
 import { JsonHighlight } from "@/components/register/JsonHighlight";
 import type { RegisterFormMode } from "@/components/register/RegisterForm";
 import { Button } from "@/components/ui/button";
+import { getApiMethodValidityStatus } from "@/lib/kleber/method-status";
 import { KLEBER_METHODS } from "@/lib/kleber/methods";
 import { DEFAULT_TOGGLES } from "@/lib/kleber/settings";
 import type {
@@ -23,7 +24,12 @@ function ApiPanelToggleIcon({ className }: { className?: string }) {
   );
 }
 
-type MethodStatus = "processing" | "complete" | "skipped" | "failed";
+type MethodStatus =
+  | "processing"
+  | "success"
+  | "warning"
+  | "skipped"
+  | "failed";
 
 const METHOD_STATUS_STYLES: Record<
   MethodStatus,
@@ -33,10 +39,15 @@ const METHOD_STATUS_STYLES: Record<
     label: "Processing",
     className: "bg-brand-subtle text-brand",
   },
-  complete: {
-    label: "Complete",
+  success: {
+    label: "Success",
     className:
       "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400",
+  },
+  warning: {
+    label: "Warning",
+    className:
+      "bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300",
   },
   skipped: {
     label: "Skipped",
@@ -49,12 +60,17 @@ const METHOD_STATUS_STYLES: Record<
   },
 };
 
-function getMethodStatus(result?: ValidationStepResult): MethodStatus | null {
+function getMethodStatus(
+  result: ValidationStepResult | undefined,
+  method: string,
+): MethodStatus | null {
   if (!result) return null;
   if (!result.enabled) return "skipped";
   if (result.loading) return "processing";
   if (result.error) return "failed";
-  if (result.response) return "complete";
+  if (result.response) {
+    return getApiMethodValidityStatus(method, result.response);
+  }
   return null;
 }
 
@@ -289,7 +305,7 @@ export function ApiMethodsPanel({
               {group.sections.map((section) => {
                 const result = resultsByMethod.get(section.method);
                 const isOpen = openMethod === section.method;
-                const status = getMethodStatus(result);
+                const status = getMethodStatus(result, section.method);
 
                 return (
                   <section
@@ -383,14 +399,13 @@ export function ApiMethodsPanel({
 
                         <div
                           className={cn(
-                            "overflow-auto rounded-xl bg-surface",
-                            expandedContent ? "h-[100dvh]" : "h-[287px]",
+                            "h-fit overflow-auto rounded-xl bg-surface",
+                            expandedContent ? "max-h-[100dvh]" : "max-h-[200px]",
                           )}
                         >
                           <ResultContent
                             result={result}
                             viewMode={viewMode}
-                            fillHeight
                           />
                         </div>
                       </div>
@@ -413,33 +428,25 @@ export function ApiMethodsPanel({
 function ResultContent({
   result,
   viewMode,
-  fillHeight = false,
 }: {
   result?: ValidationStepResult;
   viewMode: ViewMode;
-  fillHeight?: boolean;
 }) {
   if (!result) {
     return (
-      <p className="flex h-full items-center justify-center p-4 text-sm text-body">
-        Run validation to see API results.
-      </p>
+      <p className="p-4 text-sm text-body">Run validation to see API results.</p>
     );
   }
 
   if (!result.enabled) {
     return (
-      <p className="flex h-full items-center justify-center p-4 text-sm text-body">
-        Skipped (disabled in settings)
-      </p>
+      <p className="p-4 text-sm text-body">Skipped (disabled in settings)</p>
     );
   }
 
   if (result.loading) {
     return (
-      <p className="flex h-full items-center justify-center p-4 text-sm font-medium text-brand">
-        Running...
-      </p>
+      <p className="p-4 text-sm font-medium text-brand">Running...</p>
     );
   }
 
@@ -452,11 +459,7 @@ function ResultContent({
   }
 
   if (!result.response) {
-    return (
-      <p className="flex h-full items-center justify-center p-4 text-sm text-body">
-        Pending
-      </p>
-    );
+    return <p className="p-4 text-sm text-body">Pending</p>;
   }
 
   if (viewMode === "table") {
@@ -464,20 +467,20 @@ function ResultContent({
   }
 
   return (
-    <div className={cn("p-4", fillHeight && "min-h-full")}>
+    <div className="p-4">
       <JsonHighlight value={result.response} />
     </div>
   );
 }
 
 function ResultTable({ response }: { response: KleberResponse }) {
-  const rows = flattenResponse(response);
+  const firstResult = response.DtResponse.Result?.[0];
+  const { Result: _result, ...dtResponseMeta } = response.DtResponse;
+  const rows = flattenResponse(firstResult ?? dtResponseMeta);
 
   if (rows.length === 0) {
     return (
-      <p className="flex h-full items-center justify-center p-4 text-sm text-body">
-        No table data available.
-      </p>
+      <p className="p-4 text-sm text-body">No table data available.</p>
     );
   }
 

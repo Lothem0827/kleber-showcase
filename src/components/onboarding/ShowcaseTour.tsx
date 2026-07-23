@@ -165,7 +165,8 @@ function styleTourPopover(
 
   // Keep Skip after nav buttons in the DOM so step changes don't focus it
   // first; flex order still places it left of Back/Next.
-  let skip = popover.footer.querySelector<HTMLButtonElement>(".kleber-tour-skip");
+  let skip =
+    popover.footer.querySelector<HTMLButtonElement>(".kleber-tour-skip");
   if (!skip) {
     skip = document.createElement("button");
     skip.type = "button";
