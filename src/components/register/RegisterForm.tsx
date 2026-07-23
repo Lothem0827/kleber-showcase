@@ -93,26 +93,19 @@ function addressFieldVisualStatus(
   return outcome;
 }
 
-/** True when the line looks like a numbered street (e.g. "5 Cecil St"), not a building name. */
-function looksLikeStreetAddress(line: string): boolean {
-  return /^\d+[A-Za-z]?(?:\s|\/|-)/.test(line.trim());
-}
-
 /**
- * Map RepairAddress street fields into form line1/line2.
- * Match production: strip junk line2 for numbered streets; keep line2 for building names.
+ * Map RepairAddress street fields into form line1/line2 from API result only.
+ * If the API returns no line-2 component, clear Address line 2 (do not keep user junk).
  */
 function mapRepairedStreetLines(
   repaired: KleberAddressResult,
   fallbackStreet: string,
-  originalLine2 = "",
 ): { addressLine1: string; addressLine2: string } {
   const parts = String(repaired.AddressLine ?? fallbackStreet).split(",");
   const buildingName = String(repaired.BuildingName || "").trim();
   const streetLine = parts[0]?.trim() || fallbackStreet;
   const splitLine2 = parts.length > 1 ? parts[1].trim() : "";
   const apiLine2 = String(repaired.AddressLine2 || "").trim();
-  const keptLine2 = originalLine2.trim();
 
   if (buildingName) {
     const distinctStreet =
@@ -122,25 +115,14 @@ function mapRepairedStreetLines(
         : "";
     return {
       addressLine1: buildingName,
-      addressLine2:
-        distinctStreet || splitLine2 || apiLine2 || keptLine2,
+      addressLine2: distinctStreet || splitLine2 || apiLine2 || "",
     };
   }
 
-  const addressLine1 = streetLine || fallbackStreet;
-  if (splitLine2 || apiLine2) {
-    return {
-      addressLine1,
-      addressLine2: splitLine2 || apiLine2,
-    };
-  }
-
-  // No API line2: only clear junk when this is a numbered street address.
-  if (looksLikeStreetAddress(addressLine1)) {
-    return { addressLine1, addressLine2: "" };
-  }
-
-  return { addressLine1, addressLine2: keptLine2 };
+  return {
+    addressLine1: streetLine || fallbackStreet,
+    addressLine2: splitLine2 || apiLine2 || "",
+  };
 }
 
 const INITIAL_FORM: RegisterFormData = {
@@ -512,7 +494,6 @@ function useRegisterForm(
           mapRepairedStreetLines(
             repaired,
             suggestion.AddressLine1 || suggestion.AddressLine,
-            suggestion.AddressLine2,
           );
         updateField("addressLookup", line1);
         updateField("addressLine1", line1);
@@ -715,11 +696,7 @@ function useRegisterForm(
         });
         const repaired = getFirstResult<KleberAddressResult>(repairResponse);
         if (repaired) {
-          const street = mapRepairedStreetLines(
-            repaired,
-            addressLine1,
-            addressLine2,
-          );
+          const street = mapRepairedStreetLines(repaired, addressLine1);
           repairedParts = {
             addressLine1: street.addressLine1,
             addressLine2: street.addressLine2,
