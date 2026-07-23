@@ -14,6 +14,7 @@ import {
   RegisterForm,
   type RegisterFormMode,
 } from "@/components/register/RegisterForm";
+import { useShowcaseScenarioOptional } from "@/components/showcase/ShowcaseScenarioProvider";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -36,6 +37,22 @@ const PaymentMethodCard = dynamic(
   () =>
     import("@/components/register/PaymentMethodCard").then(
       (module) => module.PaymentMethodCard,
+    ),
+  { ssr: false },
+);
+
+const LoanSummaryCard = dynamic(
+  () =>
+    import("@/components/register/LoanSideCards").then(
+      (module) => module.LoanSummaryCard,
+    ),
+  { ssr: false },
+);
+
+const ApplicantSecurityCard = dynamic(
+  () =>
+    import("@/components/register/LoanSideCards").then(
+      (module) => module.ApplicantSecurityCard,
     ),
   { ssr: false },
 );
@@ -81,6 +98,9 @@ export function DesktopValidationLayout({
   const gridRef = useRef<HTMLDivElement>(null);
   const [apiCollapsed, setApiCollapsed] = useState(true);
   const [sideCardsFit, setSideCardsFit] = useState(true);
+  const [cardholderName, setCardholderName] = useState("");
+  const scenario = useShowcaseScenarioOptional();
+  const useLoanCards = enableSideCards && scenario.sideCards === "loan";
 
   const syncApiCollapsed = useCallback(() => {
     const next = apiPanelRef.current?.isCollapsed() ?? true;
@@ -174,14 +194,24 @@ export function DesktopValidationLayout({
               requestKey={requestKey}
               onValidationResultsChange={onValidationResultsChange}
               onMissingApiKey={onMissingApiKey}
+              onFullNameChange={setCardholderName}
               settingsOpen={settingsOpen}
               apiMethodsCollapsed={apiCollapsed}
               onOpenApiMethods={expandApiPanel}
             />
             {showSideCards ? (
               <div className="grid grid-rows-2 gap-5 [grid-template-rows:1fr_1fr]">
-                <ProductCard />
-                <PaymentMethodCard />
+                {useLoanCards ? (
+                  <>
+                    <LoanSummaryCard cardholderName={cardholderName} />
+                    <ApplicantSecurityCard />
+                  </>
+                ) : (
+                  <>
+                    <ProductCard />
+                    <PaymentMethodCard cardholderName={cardholderName} />
+                  </>
+                )}
               </div>
             ) : null}
           </div>

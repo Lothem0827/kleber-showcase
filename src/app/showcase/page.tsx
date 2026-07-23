@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ValidationPageHeader } from "@/components/register/ValidationPageHeader";
+import { ShowcaseScenarioHeader } from "@/components/showcase/ShowcaseScenarioHeader";
 import { ValidationPageShell } from "@/components/register/ValidationPageShell";
 
 export const metadata: Metadata = {
@@ -11,12 +11,7 @@ export const metadata: Metadata = {
 export default function ShowcasePage() {
   return (
     <ValidationPageShell
-      header={
-        <ValidationPageHeader
-          title="Loqate Showcase"
-          subtitle="End-to-end address, phone, and email validation with Loqate"
-        />
-      }
+      header={<ShowcaseScenarioHeader />}
       mode="full"
       showSideCards
       defaultTestApiKey={process.env.KLEBER_KEY?.trim() ?? ""}

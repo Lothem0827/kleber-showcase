@@ -60,7 +60,9 @@ import type { Country, Value as E164Number } from "react-phone-number-input";
 import { AddressCleanedCard } from "@/components/register/AddressCleanedCard";
 import { AddressConfirmDialog } from "@/components/register/AddressConfirmDialog";
 import { ValidationChecksCard } from "@/components/register/ValidationChecksCard";
+import { useShowcaseScenarioOptional } from "@/components/showcase/ShowcaseScenarioProvider";
 import { Button } from "@/components/ui/button";
+import type { ShowcaseScenarioConfig } from "@/lib/showcase/scenarios";
 
 type FieldStatus = "idle" | "success" | "error" | "warning";
 
@@ -91,10 +93,62 @@ function addressFieldVisualStatus(
   return outcome;
 }
 
+/** True when the line looks like a numbered street (e.g. "5 Cecil St"), not a building name. */
+function looksLikeStreetAddress(line: string): boolean {
+  return /^\d+[A-Za-z]?(?:\s|\/|-)/.test(line.trim());
+}
+
+/**
+ * Map RepairAddress street fields into form line1/line2.
+ * Match production: strip junk line2 for numbered streets; keep line2 for building names.
+ */
+function mapRepairedStreetLines(
+  repaired: KleberAddressResult,
+  fallbackStreet: string,
+  originalLine2 = "",
+): { addressLine1: string; addressLine2: string } {
+  const parts = String(repaired.AddressLine ?? fallbackStreet).split(",");
+  const buildingName = String(repaired.BuildingName || "").trim();
+  const streetLine = parts[0]?.trim() || fallbackStreet;
+  const splitLine2 = parts.length > 1 ? parts[1].trim() : "";
+  const apiLine2 = String(repaired.AddressLine2 || "").trim();
+  const keptLine2 = originalLine2.trim();
+
+  if (buildingName) {
+    const distinctStreet =
+      streetLine &&
+      streetLine.toLowerCase() !== buildingName.toLowerCase()
+        ? streetLine
+        : "";
+    return {
+      addressLine1: buildingName,
+      addressLine2:
+        distinctStreet || splitLine2 || apiLine2 || keptLine2,
+    };
+  }
+
+  const addressLine1 = streetLine || fallbackStreet;
+  if (splitLine2 || apiLine2) {
+    return {
+      addressLine1,
+      addressLine2: splitLine2 || apiLine2,
+    };
+  }
+
+  // No API line2: only clear junk when this is a numbered street address.
+  if (looksLikeStreetAddress(addressLine1)) {
+    return { addressLine1, addressLine2: "" };
+  }
+
+  return { addressLine1, addressLine2: keptLine2 };
+}
+
 const INITIAL_FORM: RegisterFormData = {
   countryCode: "AU",
   addressLookup: "",
   businessName: "",
+  fullName: "",
+  dateOfBirth: "",
   addressLine1: "",
   addressLine2: "",
   suburb: "",
@@ -454,22 +508,15 @@ function useRegisterForm(
       });
       const repaired = getFirstResult<KleberAddressResult>(response);
       if (repaired) {
-        const parts = (repaired.AddressLine ?? suggestion.AddressLine).split(
-          ",",
-        );
-        const buildingName = String(repaired.BuildingName || "").trim();
-        const streetLine = parts[0]?.trim() || suggestion.AddressLine1 || "";
-        const line1 = buildingName || streetLine || suggestion.AddressLine;
+        const { addressLine1: line1, addressLine2: line2 } =
+          mapRepairedStreetLines(
+            repaired,
+            suggestion.AddressLine1 || suggestion.AddressLine,
+            suggestion.AddressLine2,
+          );
         updateField("addressLookup", line1);
         updateField("addressLine1", line1);
-        updateField(
-          "addressLine2",
-          buildingName
-            ? streetLine
-            : parts.length > 1
-              ? parts[1].trim()
-              : suggestion.AddressLine2,
-        );
+        updateField("addressLine2", line2);
         updateField(
           "suburb",
           (repaired.Locality as string) ?? suggestion.Locality,
@@ -668,16 +715,14 @@ function useRegisterForm(
         });
         const repaired = getFirstResult<KleberAddressResult>(repairResponse);
         if (repaired) {
-          const parts = String(repaired.AddressLine ?? addressLine1).split(",");
-          const buildingName = String(repaired.BuildingName || "").trim();
-          const streetLine = parts[0]?.trim() || addressLine1;
+          const street = mapRepairedStreetLines(
+            repaired,
+            addressLine1,
+            addressLine2,
+          );
           repairedParts = {
-            addressLine1: buildingName || streetLine || addressLine1,
-            addressLine2: buildingName
-              ? streetLine
-              : parts.length > 1
-                ? parts[1].trim()
-                : addressLine2,
+            addressLine1: street.addressLine1,
+            addressLine2: street.addressLine2,
             suburb: String(repaired.Locality || suburb),
             state: String(repaired.State || state),
             postcode: String(repaired.Postcode || postcode),
@@ -975,6 +1020,12 @@ function FormField({
 
 function PersonalDetailsCard(props: {
   fields?: "both" | "email" | "phone";
+  title?: string;
+  description?: string;
+  showFullName?: boolean;
+  showDateOfBirth?: boolean;
+  fullName?: string;
+  dateOfBirth?: string;
   countryCode: string;
   email: string;
   mobile: string;
@@ -982,6 +1033,8 @@ function PersonalDetailsCard(props: {
   phoneStatus: string | null;
   emailFieldStatus: FieldStatus;
   phoneFieldStatus: FieldStatus;
+  onFullNameChange?: (value: string) => void;
+  onDateOfBirthChange?: (value: string) => void;
   onCountryCodeChange: (value: string) => void;
   onEmailChange: (value: string) => void;
   onMobileChange: (value: string) => void;
@@ -994,13 +1047,26 @@ function PersonalDetailsCard(props: {
     <Card className="rounded-[12px] border border-border bg-card py-0 shadow-none">
       <CardHeader className="px-5 pt-5">
         <CardTitle className="text-base font-semibold text-heading">
-          Personal Details
+          {props.title ?? "Personal Details"}
         </CardTitle>
         <CardDescription className="text-sm text-body">
-          Contact information for this order
+          {props.description ?? "Contact information for this order"}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4 px-5 pt-2 pb-5">
+        {props.showFullName ? (
+          <FormField id="fullName" label="Full name" required>
+            <Input
+              id="fullName"
+              type="text"
+              value={props.fullName ?? ""}
+              placeholder="John Smith"
+              autoComplete="name"
+              onChange={(e) => props.onFullNameChange?.(e.target.value)}
+            />
+          </FormField>
+        ) : null}
+
         {showEmail ? (
           <FormField
             id="email"
@@ -1047,6 +1113,17 @@ function PersonalDetailsCard(props: {
             />
           </FormField>
         ) : null}
+
+        {props.showDateOfBirth ? (
+          <FormField id="dateOfBirth" label="Date of birth" required>
+            <Input
+              id="dateOfBirth"
+              type="date"
+              value={props.dateOfBirth ?? ""}
+              onChange={(e) => props.onDateOfBirthChange?.(e.target.value)}
+            />
+          </FormField>
+        ) : null}
       </CardContent>
     </Card>
   );
@@ -1054,6 +1131,8 @@ function PersonalDetailsCard(props: {
 
 function AddressDetailsCard(props: {
   form: RegisterFormData;
+  title?: string;
+  description?: string;
   manualEntry: boolean;
   addressFieldsLocked: boolean;
   searchLoading: boolean;
@@ -1083,10 +1162,10 @@ function AddressDetailsCard(props: {
     <Card className="overflow-visible rounded-[12px] border border-border bg-card py-0 shadow-none">
       <CardHeader className="px-5 pt-5">
         <CardTitle className="text-base font-semibold text-heading">
-          Address Details
+          {props.title ?? "Address Details"}
         </CardTitle>
         <CardDescription className="text-sm text-body">
-          Where your order will be shipped
+          {props.description ?? "Where your order will be shipped"}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4 overflow-visible px-5 pb-5 pt-2">
@@ -1310,6 +1389,7 @@ interface RegisterFormProps {
   mode?: RegisterFormMode;
   onValidationResultsChange?: (results: ValidationStepResult[]) => void;
   onMissingApiKey?: () => void;
+  onFullNameChange?: (value: string) => void;
   settingsOpen?: boolean;
   apiMethodsCollapsed?: boolean;
   onOpenApiMethods?: () => void;
@@ -1321,6 +1401,7 @@ export function RegisterForm({
   mode = "full",
   onValidationResultsChange,
   onMissingApiKey,
+  onFullNameChange,
   settingsOpen = false,
   apiMethodsCollapsed = false,
   onOpenApiMethods,
@@ -1362,6 +1443,27 @@ export function RegisterForm({
     handleConfirmProceed,
   } = useRegisterForm(toggles, requestKey, mode, onMissingApiKey, settingsOpen);
 
+  const scenario = useShowcaseScenarioOptional();
+  const useScenarioCopy = mode === "full";
+  const contactCopy: Pick<
+    ShowcaseScenarioConfig,
+    | "contactTitle"
+    | "contactDescription"
+    | "showFullName"
+    | "showDateOfBirth"
+    | "addressTitle"
+    | "addressDescription"
+  > = useScenarioCopy
+    ? scenario
+    : {
+        contactTitle: "Personal Details",
+        contactDescription: "Contact information for this order",
+        showFullName: false,
+        showDateOfBirth: false,
+        addressTitle: "Address Details",
+        addressDescription: "Where your order will be shipped",
+      };
+
   useEffect(() => {
     onValidationResultsChange?.(validationResults);
   }, [onValidationResultsChange, validationResults]);
@@ -1386,6 +1488,12 @@ export function RegisterForm({
       {showPersonal ? (
         <PersonalDetailsCard
           fields={personalFields}
+          title={contactCopy.contactTitle}
+          description={contactCopy.contactDescription}
+          showFullName={contactCopy.showFullName}
+          showDateOfBirth={contactCopy.showDateOfBirth}
+          fullName={form.fullName}
+          dateOfBirth={form.dateOfBirth}
           countryCode={form.countryCode}
           email={form.email}
           mobile={form.mobile}
@@ -1393,6 +1501,11 @@ export function RegisterForm({
           phoneStatus={phoneStatus}
           emailFieldStatus={emailFieldStatus}
           phoneFieldStatus={phoneFieldStatus}
+          onFullNameChange={(value) => {
+            updateField("fullName", value);
+            onFullNameChange?.(value);
+          }}
+          onDateOfBirthChange={(value) => updateField("dateOfBirth", value)}
           onCountryCodeChange={(value) => updateField("countryCode", value)}
           onEmailChange={(value) => updateField("email", value)}
           onMobileChange={(value) => updateField("mobile", value)}
@@ -1402,6 +1515,8 @@ export function RegisterForm({
       {showAddress ? (
         <AddressDetailsCard
           form={form}
+          title={contactCopy.addressTitle}
+          description={contactCopy.addressDescription}
           manualEntry={manualEntry}
           addressFieldsLocked={addressFieldsLocked}
           searchLoading={searchLoading}

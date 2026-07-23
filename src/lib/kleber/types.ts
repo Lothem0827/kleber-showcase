@@ -59,6 +59,8 @@ export interface RegisterFormData {
   countryCode: string;
   addressLookup: string;
   businessName: string;
+  fullName: string;
+  dateOfBirth: string;
   addressLine1: string;
   addressLine2: string;
   suburb: string;

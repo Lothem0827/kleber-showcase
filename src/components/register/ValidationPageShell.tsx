@@ -15,6 +15,7 @@ import {
   RegisterForm,
   type RegisterFormMode,
 } from "@/components/register/RegisterForm";
+import { ShowcaseScenarioProvider } from "@/components/showcase/ShowcaseScenarioProvider";
 import { ValidationWorkspaceSkeleton } from "@/components/register/ValidationWorkspaceSkeleton";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { useIsXl } from "@/hooks/use-xl";
@@ -116,6 +117,7 @@ export function ValidationPageShell({
 
   const draft = draftSettings ?? savedSettings;
   const missingApiKey = !savedSettings.testApiKey.trim();
+  const enableScenarios = mode === "full" && enableSideCards;
 
   const openSettings = useCallback(() => {
     setSettingsOpen(true);
@@ -152,49 +154,55 @@ export function ValidationPageShell({
     previousLayoutRef.current = null;
   }, [groupRef]);
 
+  const workspace = isXl ? (
+    <div className="h-full min-h-0 flex-1">
+      <DesktopValidationLayout
+        header={header}
+        mode={mode}
+        toggles={savedSettings.toggles}
+        requestKey={savedSettings.testApiKey}
+        validationResults={validationResults}
+        onValidationResultsChange={setValidationResults}
+        onMissingApiKey={openSettings}
+        settingsOpen={settingsOpen}
+        enableSideCards={enableSideCards}
+        groupRef={groupRef}
+        onExpandWidth={ensureApiAtLeastHalf}
+        onCollapseWidth={restorePreviousSplit}
+      />
+    </div>
+  ) : (
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-y-auto">
+      <div className="p-6">
+        {header}
+        <RegisterForm
+          mode={mode}
+          toggles={savedSettings.toggles}
+          requestKey={savedSettings.testApiKey}
+          onValidationResultsChange={setValidationResults}
+          onMissingApiKey={openSettings}
+          settingsOpen={settingsOpen}
+        />
+      </div>
+      <ApiMethodsPanel
+        results={validationResults}
+        mode={mode}
+        toggles={savedSettings.toggles}
+        layout="stack"
+      />
+    </div>
+  );
+
   return (
     <AppShell
       settingsOpen={settingsOpen}
       onOpenSettings={openSettings}
       onCloseSettings={closeSettings}
     >
-      {isXl ? (
-        <div className="h-full min-h-0 flex-1">
-          <DesktopValidationLayout
-            header={header}
-            mode={mode}
-            toggles={savedSettings.toggles}
-            requestKey={savedSettings.testApiKey}
-            validationResults={validationResults}
-            onValidationResultsChange={setValidationResults}
-            onMissingApiKey={openSettings}
-            settingsOpen={settingsOpen}
-            enableSideCards={enableSideCards}
-            groupRef={groupRef}
-            onExpandWidth={ensureApiAtLeastHalf}
-            onCollapseWidth={restorePreviousSplit}
-          />
-        </div>
+      {enableScenarios ? (
+        <ShowcaseScenarioProvider>{workspace}</ShowcaseScenarioProvider>
       ) : (
-        <div className="flex h-full min-h-0 flex-1 flex-col overflow-y-auto">
-          <div className="p-6">
-            {header}
-            <RegisterForm
-              mode={mode}
-              toggles={savedSettings.toggles}
-              requestKey={savedSettings.testApiKey}
-              onValidationResultsChange={setValidationResults}
-              onMissingApiKey={openSettings}
-              settingsOpen={settingsOpen}
-            />
-          </div>
-          <ApiMethodsPanel
-            results={validationResults}
-            mode={mode}
-            toggles={savedSettings.toggles}
-            layout="stack"
-          />
-        </div>
+        workspace
       )}
 
       {mode === "full" ? <ShowcaseTour /> : null}

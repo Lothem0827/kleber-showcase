@@ -4,7 +4,19 @@ import Image from "next/image";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { CardChip } from "@/components/icons/figma-icons";
 
-export function PaymentMethodCard() {
+const CARDHOLDER_DISPLAY_MAX = 18;
+
+function formatCardholderName(name?: string) {
+  const trimmed = name?.trim() ?? "";
+  if (!trimmed) return "John Smith";
+  return trimmed.slice(0, CARDHOLDER_DISPLAY_MAX);
+}
+
+export function PaymentMethodCard({
+  cardholderName,
+}: {
+  cardholderName?: string;
+}) {
   return (
     <Card className="flex h-fit flex-col rounded-[12px] border border-border  py-0 shadow-none">
       <CardHeader className="px-5 pt-5">
@@ -31,7 +43,9 @@ export function PaymentMethodCard() {
               3455 4562 7710 3507
             </p>
             <div className="flex items-center justify-between text-sm">
-              <p className="font-bold">John Smith</p>
+              <p className="font-bold">
+                {formatCardholderName(cardholderName)}
+              </p>
               <p className="text-[10px] font-medium">Valid Thru 12/27</p>
             </div>
           </div>
